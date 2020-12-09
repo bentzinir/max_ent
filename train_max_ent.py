@@ -4,11 +4,12 @@ import numpy as np
 import time
 from stable_baselines3 import DQN, PPO
 from stable_baselines3.dqn import MlpPolicy, CnnPolicy
+from envs.custom_cnn import CustomCnn
 from tqdm import tqdm
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 
-def eval_policy(env, policy, steps=10000, desc=''):
+def eval_policy(env, policy, steps=1000, desc=''):
     obs = env.reset()
     traj_rewards = [0]
     for _ in tqdm(range(steps), desc=desc, leave=True):
@@ -24,10 +25,16 @@ def eval_policy(env, policy, steps=10000, desc=''):
     return np.mean(traj_rewards)
 
 
-env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=16, cols=16, horz_wind=(0, 0), vert_wind=(0, 0))])
+env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=10, spatial=False, goal=[1,1], n_repeats=10, cols=10, empty=True, horz_wind=(0, 0), vert_wind=(0, 0))])
 
-model = DQN(MlpPolicy, env, verbose=1)
-model.learn(total_timesteps=1000000, log_interval=1000)
+# 1.  MLP
+model = DQN(MlpPolicy, env, verbose=1, gamma=0.8, buffer_size=50000)
+
+# 2. Custom Cnn
+# policy_kwargs = dict(features_extractor_class=CustomCnn)
+# model = DQN('CnnPolicy', env, policy_kwargs=policy_kwargs, verbose=1, gamma=0.8, buffer_size=10000)
+
+model.learn(total_timesteps=20000, log_interval=100)
 model.save("rooms")
 
 eval_res = eval_policy(env, model.predict, desc='Evaluating model')

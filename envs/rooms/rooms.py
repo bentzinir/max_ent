@@ -7,7 +7,8 @@ import cv2
 class RoomsEnv(core.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, rows=16, cols=16, random_walls=False,
+    def __init__(self, rows=16, cols=16, empty=False, random_walls=False,
+                 spatial=True, n_repeats=1, goal=None,
                  goal_in_state=True, max_steps=None,
                  goal_only_visible_in_room=False, seed=None,
                  fixed_reset=False, vert_wind=(0, 0), horz_wind=(0, 0)):
@@ -29,17 +30,26 @@ class RoomsEnv(core.Env):
         self.horz_wind = np.array(horz_wind)
 
         n_channels = 2 + goal_in_state
-        self.action_space = spaces.Discrete(4)
-        self.observation_space = spaces.Box(low=0, high=1, shape=(n_channels, self.rows, self.cols), dtype=np.float32)
-        self.directions = [np.array((-1, 0)), np.array((1, 0)), np.array((0, -1)), np.array((0, 1))]
+        self.n_repeats = n_repeats
+        self.action_space = spaces.Discrete(3 + n_repeats)
+        self.spatial = spatial
+        self.scale = np.maximum(rows, cols)
+        if self.spatial:
+            self.observation_space = spaces.Box(low=0, high=1, shape=(n_channels, self.rows, self.cols),
+                                                dtype=np.float32)
+        else:
+            self.observation_space = spaces.Box(low=0, high=1,
+                                                shape=(4,), dtype=np.float32)
+
+        self.directions = [np.array((-1, 0)), np.array((1, 0)), np.array((0, -1))] + [np.array((0, 1))] * n_repeats
         if seed is not None:
             self.rng = np.random.RandomState(seed)
         else:
             self.rng = np.random.RandomState()
 
-        self.map, self.seed = self._randomize_walls(random=random_walls)
-        self.goal_cell, self.goal = self._random_from_map()
-        self.state_cell, self.state = self._random_from_map()
+        self.map, self.seed = self._randomize_walls(random=random_walls, empty=empty)
+        self.goal_cell, self.goal = self._random_from_map(goal)
+        self.state_cell, self.state = self._random_from_map(None)
 
         self.fixed_reset = fixed_reset
         if fixed_reset:
@@ -54,17 +64,19 @@ class RoomsEnv(core.Env):
         if self.fixed_reset:
             self.state_cell, self.state = self.reset_state_cell, self.reset_state
         else:
-            self.state_cell, self.state = self._random_from_map()
+            self.state_cell, self.state = self._random_from_map(None)
 
         self.nsteps = 0
         self.tot_reward = 0
 
-        obs = self._im_from_state()
-
+        if self.spatial:
+            obs = self._im_from_state()
+        else:
+            obs = np.concatenate([self.state_cell, self.goal_cell]).astype(np.float32) / self.scale
         return obs
 
     def step(self, action: int):
-        # actions: 0 = up, 1 = down, 2 = left, 3 = right
+        # actions: 0 = up, 1 = down, 2 = left, 3:end = right
         self._move(action)
         wind_up = np.random.choice([-1, 0, 1], p=[1 - self.vert_wind.sum(), self.vert_wind[0], self.vert_wind[1]])
         wind_right = np.random.choice([-1, 2, 3], p=[1 - self.horz_wind.sum(), self.horz_wind[1], self.horz_wind[0]])
@@ -74,7 +86,10 @@ class RoomsEnv(core.Env):
             self._move(wind_right)
 
         done = np.all(self.state_cell == self.goal_cell)
-        obs = self._im_from_state()
+        if self.spatial:
+            obs = self._im_from_state()
+        else:
+            obs = np.concatenate([self.state_cell, self.goal_cell]).astype(np.float32) / self.scale
         r = float(done)
 
         if self.nsteps >= self.max_steps:
@@ -99,8 +114,11 @@ class RoomsEnv(core.Env):
                     self.state[(self.state_cell[0] + i):(self.state_cell[0] + i + 1),
                                (self.state_cell[1] + j):(self.state_cell[1] + j + 1)] = 1
 
-    def _random_from_map(self):
-        cell = self.rng.choice(self.rows), self.rng.choice(self.cols)
+    def _random_from_map(self, goal):
+        if goal is None:
+            cell = self.rng.choice(self.rows), self.rng.choice(self.cols)
+        else:
+            cell = tuple(goal)
         while self.map[cell[0], cell[1]] == 1:
             cell = self.rng.choice(self.rows), self.rng.choice(self.cols)
         map = np.zeros_like(self.map)
@@ -136,12 +154,16 @@ class RoomsEnv(core.Env):
         else:
             return 3
 
-    def _randomize_walls(self, random=False):
+    def _randomize_walls(self, random=False, empty=False):
         map = np.zeros((self.rows, self.cols))
+
         map[0, :] = 1
         map[:, 0] = 1
         map[-1:, :] = 1
         map[:, -1:] = 1
+
+        if empty:
+            return map, 0
 
         if random:
             seed = (self.rng.randint(2, self.rows - 2), self.rng.randint(2, self.cols - 2))
