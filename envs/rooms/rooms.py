@@ -34,12 +34,13 @@ class RoomsEnv(core.Env):
         self.action_space = spaces.Discrete(3 + n_repeats)
         self.spatial = spatial
         self.scale = np.maximum(rows, cols)
-        if self.spatial:
+        if spatial:
+            n_channels = 2 + goal_in_state
             self.observation_space = spaces.Box(low=0, high=1, shape=(n_channels, self.rows, self.cols),
                                                 dtype=np.float32)
         else:
-            self.observation_space = spaces.Box(low=0, high=1,
-                                                shape=(4,), dtype=np.float32)
+            n_channels = 2 + goal_in_state * 2
+            self.observation_space = spaces.Box(low=0, high=1, shape=(n_channels,), dtype=np.float32)
 
         self.directions = [np.array((-1, 0)), np.array((1, 0)), np.array((0, -1))] + [np.array((0, 1))] * n_repeats
         if seed is not None:
@@ -69,10 +70,7 @@ class RoomsEnv(core.Env):
         self.nsteps = 0
         self.tot_reward = 0
 
-        if self.spatial:
-            obs = self._im_from_state()
-        else:
-            obs = np.concatenate([self.state_cell, self.goal_cell]).astype(np.float32) / self.scale
+        obs = self._obs_from_state(self.spatial)
         return obs
 
     def step(self, action: int):
@@ -86,10 +84,7 @@ class RoomsEnv(core.Env):
             self._move(wind_right)
 
         done = np.all(self.state_cell == self.goal_cell)
-        if self.spatial:
-            obs = self._im_from_state()
-        else:
-            obs = np.concatenate([self.state_cell, self.goal_cell]).astype(np.float32) / self.scale
+        obs = self._obs_from_state(self.spatial)
         r = float(done)
 
         if self.nsteps >= self.max_steps:
@@ -131,18 +126,28 @@ class RoomsEnv(core.Env):
 
         return np.array(cell), map
 
-    def _im_from_state(self):
-        im_list = [self.state, self.map]
-        if self.goal_in_state:
-            if self.goal_only_visible_in_room:
-                if self._which_room(self.state_cell) == self._which_room(self.goal_cell):
-                    im_list.append(self.goal)
+    def _obs_from_state(self, spatial):
+        if spatial:
+            im_list = [self.state, self.map]
+            if self.goal_in_state:
+                if self.goal_only_visible_in_room:
+                    if self._which_room(self.state_cell) == self._which_room(self.goal_cell):
+                        im_list.append(self.goal)
+                    else:
+                        im_list.append(np.zeros_like(self.map))
                 else:
-                    im_list.append(np.zeros_like(self.map))
-            else:
-                im_list.append(self.goal)
+                    im_list.append(self.goal)
 
-        return np.stack(im_list, axis=0).astype(np.int8)
+            return np.stack(im_list, axis=0).astype(np.int8)
+        else:
+            obs = list(self.state_cell)
+            if self.goal_in_state:
+                if self.goal_only_visible_in_room:
+                    if self._which_room(self.state_cell) == self._which_room(self.goal_cell):
+                        obs += list(self.goal_cell)
+                else:
+                    obs += list(self.goal_cell)
+            return np.array(obs) / self.scale
 
     def _which_room(self, cell):
         if cell[0] <= self.seed[0] and cell[1] <= self.seed[1]:
@@ -184,18 +189,8 @@ class RoomsEnv(core.Env):
 
         return map, seed
 
-    def _render(self, mode='human', close=False):
-        im = self._im_from_state()
-        for c in range(im.shape[0]):
-            im[c, :, :] *= c + 1
-        im = im.sum(0)
-        plt.figure()
-        plt.imshow(im)
-        plt.show()
-        return 0
-
     def render(self, mode='human'):
-        im = self._im_from_state()
+        im = self._obs_from_state(True)
         for c in range(im.shape[0]):
             im[c, :, :] *= c + 1
         img = (im.sum(0) * 1) * 70
