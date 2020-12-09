@@ -1,21 +1,22 @@
 import gym
+import envs
 import numpy as np
 
 from stable_baselines3 import DQN
 from stable_baselines3.dqn import MlpPolicy
 
-env = gym.make('CartPole-v0')
+env = gym.make('rooms-v0', rows=16, cols=16, horz_wind=(0, 0), vert_wind=(0, 0))
 
 model = DQN(MlpPolicy, env, verbose=1)
 model.learn(total_timesteps=10000, log_interval=4)
-model.save("dqn_pendulum")
+model.save("rooms")
 
-del model # remove to demonstrate saving and loading
+del model  # remove to demonstrate saving and loading
 
-model = DQN.load("dqn_pendulum")
+model = DQN.load("rooms")
 
 obs = env.reset()
-while True:
+for i in range(1000):
     action, _states = model.predict(obs, deterministic=True)
     obs, reward, done, info = env.step(action)
     env.render()
