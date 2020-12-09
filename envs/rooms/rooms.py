@@ -1,6 +1,7 @@
 import numpy as np
 from gym import core, spaces
 import matplotlib.pyplot as plt
+import cv2
 
 
 class RoomsEnv(core.Env):
@@ -47,6 +48,7 @@ class RoomsEnv(core.Env):
             self.reset_state_cell, self.reset_state = None, None
 
         self.tot_reward = 0
+        self.viewer = None
 
     def reset(self):
         if self.fixed_reset:
@@ -160,7 +162,7 @@ class RoomsEnv(core.Env):
 
         return map, seed
 
-    def render(self, mode='human', close=False):
+    def _render(self, mode='human', close=False):
         im = self._im_from_state()
         for c in range(im.shape[0]):
             im[c, :, :] *= c + 1
@@ -169,6 +171,27 @@ class RoomsEnv(core.Env):
         plt.imshow(im)
         plt.show()
         return 0
+
+    def render(self, mode='human'):
+        im = self._im_from_state()
+        for c in range(im.shape[0]):
+            im[c, :, :] *= c + 1
+        img = (im.sum(0) * 1) * 70
+
+        img = img.astype(np.uint8)
+
+        img = np.stack([img, img, img], axis=-1)
+        # img = cv2.resize(img3, (16, 16), interpolation=cv2.INTER_AREA)
+        #
+        img = cv2.resize(img, dsize=(512, 512), interpolation=cv2.INTER_AREA)
+        if mode == 'rgb_array':
+            return img
+        elif mode == 'human':
+            from gym.envs.classic_control import rendering
+            if self.viewer is None:
+                self.viewer = rendering.SimpleImageViewer()
+            self.viewer.imshow(img)
+            return self.viewer.isopen
 
 
 if __name__ == '__main__':
