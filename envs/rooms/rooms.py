@@ -8,7 +8,7 @@ class RoomsEnv(core.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, rows=16, cols=16, empty=False, random_walls=False,
-                 spatial=True, n_repeats=1, goal=None,
+                 spatial=True, n_repeats=1, goal=None, state=None,
                  goal_in_state=True, max_steps=None,
                  goal_only_visible_in_room=False, seed=None,
                  fixed_reset=False, vert_wind=(0, 0), horz_wind=(0, 0)):
@@ -50,7 +50,7 @@ class RoomsEnv(core.Env):
 
         self.map, self.seed = self._randomize_walls(random=random_walls, empty=empty)
         self.goal_cell, self.goal = self._random_from_map(goal)
-        self.state_cell, self.state = self._random_from_map(None)
+        self.state_cell, self.state = self._random_from_map(state)
 
         self.fixed_reset = fixed_reset
         if fixed_reset:

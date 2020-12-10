@@ -44,7 +44,7 @@ class MaxEntDQN(DQN):
             _init_setup_model: bool = True,
             action_trainer=None,
             alpha=0.1,
-            beta=0.1
+            active=True,
     ):
 
         super(MaxEntDQN, self).__init__(
@@ -76,7 +76,7 @@ class MaxEntDQN(DQN):
 
         self.action_trainer = action_trainer
         self.alpha = alpha
-        self.beta = beta
+        self.active = active
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Update learning rate according to schedule
@@ -109,12 +109,16 @@ class MaxEntDQN(DQN):
             action_model_probs = th.nn.Softmax(dim=1)(action_model_logits)
             temperature = 0.1
             pi = th.nn.Softmax(dim=1)(temperature * current_q)
-            eta = (action_model_probs > 1e-2).float() * pi
-            pi_tilde = th.sum(eta, dim=1, keepdim=True)
-
+            a_mask = F.one_hot(th.squeeze(replay_data.actions), self.env.action_space.n).float()
+            a_prime_mask = 1 - a_mask
+            pi_a = th.sum(a_mask * pi, dim=1, keepdim=True)
+            pi_a_prime = th.sum((action_model_probs > 1e-2).float() * a_prime_mask * pi, dim=1, keepdim=True)
+            effective_pi = pi_a
+            if self.active:
+                effective_pi += pi_a_prime
             # Retrieve the q-values for the actions from the replay buffer
             current_q = th.gather(current_q, dim=1, index=replay_data.actions.long())
-            log_pi = th.log(pi_tilde)
+            log_pi = th.log(effective_pi)
 
             # Apply Entropy regularization
             target_q += -self.alpha * log_pi

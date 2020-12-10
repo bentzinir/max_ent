@@ -44,8 +44,8 @@ if torch.cuda.is_available():
 else:
     device = torch.device('cpu')
 
-env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=10, spatial=False, goal=[1, 1],
-                                    n_repeats=100, cols=10, empty=True, horz_wind=(0, 0), vert_wind=(0, 0), seed=0)])
+env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=10, spatial=False, goal=[1, 1], state=[8, 8], fixed_reset=True,
+                                    n_repeats=10, cols=10, empty=True, horz_wind=(0, 0), vert_wind=(0, 0), seed=0)])
 
 # 1.  MLP
 
@@ -56,9 +56,9 @@ action_model = MLP(layers=layers, layer_dims=layer_dims).to(device)
 lr = 1e-3
 action_trainer = ActionModelTrainer(action_model=action_model, lr=lr)
 alpha = 0.01
-beta = 0.0
-model = MaxEntDQN(MlpPolicy, env, verbose=1, gamma=0.8, buffer_size=50000, learning_starts=50000,
-                  action_trainer=action_trainer, device=device, alpha=alpha, beta=beta, batch_size=128)
+active = False
+model = MaxEntDQN(MlpPolicy, env, verbose=1, gamma=0.9, buffer_size=50000, learning_starts=50000,
+                  action_trainer=action_trainer, device=device, alpha=alpha, active=active, batch_size=128)
 
 # 2. Custom Cnn
 # policy_kwargs = dict(features_extractor_class=CustomCnn)
