@@ -55,8 +55,8 @@ layers = (nn.Linear,) * (len(layer_dims) - 1)
 action_model = MLP(layers=layers, layer_dims=layer_dims).to(device)
 lr = 1e-3
 action_trainer = ActionModelTrainer(action_model=action_model, lr=lr)
-alpha = 0.01
-active = False
+alpha = 0.05
+active = True
 model = MaxEntDQN(MlpPolicy, env, verbose=1, gamma=0.9, buffer_size=50000, learning_starts=50000,
                   action_trainer=action_trainer, device=device, alpha=alpha, active=active, batch_size=128)
 
