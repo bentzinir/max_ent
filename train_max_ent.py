@@ -27,10 +27,11 @@ def eval_policy(env, model, steps=1000, desc=''):
         a_prob = model.action_trainer.action_model(torch.tensor(x, device=model.device))
         a_predicted = a_prob.detach().cpu().numpy()[0].argmax()
         acc = 0.99 * acc + 0.01 * (action[0] == a_predicted)
+        obs = next_obs
         env.render()
         time.sleep(0.03)
         traj_rewards[-1] += reward
-        print(f"accuracy: {acc}")
+        # print(f"accuracy: {acc}")
         if done:
             obs = env.reset()
             traj_rewards.append(0)
@@ -44,7 +45,7 @@ else:
     device = torch.device('cpu')
 
 env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=10, spatial=False, goal=[1, 1],
-                                    n_repeats=1, cols=10, empty=True, horz_wind=(0, 0), vert_wind=(0, 0), seed=0)])
+                                    n_repeats=100, cols=10, empty=True, horz_wind=(0, 0), vert_wind=(0, 0), seed=0)])
 
 # 1.  MLP
 
@@ -54,10 +55,10 @@ layers = (nn.Linear,) * (len(layer_dims) - 1)
 action_model = MLP(layers=layers, layer_dims=layer_dims).to(device)
 lr = 1e-3
 action_trainer = ActionModelTrainer(action_model=action_model, lr=lr)
-alpha = 0.1
+alpha = 0.01
 beta = 0.0
-model = MaxEntDQN(MlpPolicy, env, verbose=1, gamma=0.8, buffer_size=50000, learning_starts=10000,
-                  action_trainer=action_trainer, device=device, alpha=alpha, beta=beta)
+model = MaxEntDQN(MlpPolicy, env, verbose=1, gamma=0.8, buffer_size=50000, learning_starts=50000,
+                  action_trainer=action_trainer, device=device, alpha=alpha, beta=beta, batch_size=128)
 
 # 2. Custom Cnn
 # policy_kwargs = dict(features_extractor_class=CustomCnn)
@@ -65,7 +66,7 @@ model = MaxEntDQN(MlpPolicy, env, verbose=1, gamma=0.8, buffer_size=50000, learn
 
 
 # callback=None
-model.learn(total_timesteps=100000, log_interval=100)
+model.learn(total_timesteps=150000, log_interval=100)
 model.save("rooms")
 
 eval_res = eval_policy(env, model, desc='Evaluating model')

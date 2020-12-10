@@ -104,19 +104,22 @@ class MaxEntDQN(DQN):
             current_q = self.q_net(replay_data.observations)
 
             # Entropy & Action Uniqueness regularization
-            log_pi = th.nn.LogSoftmax(dim=1)(current_q)
             x = th.cat((replay_data.observations, replay_data.next_observations), dim=-1)
-            action_logits = self.action_trainer.action_model(x)
-            log_pa = th.nn.LogSoftmax(dim=1)(action_logits)
+            action_model_logits = self.action_trainer.action_model(x)
+            action_model_probs = th.nn.Softmax(dim=1)(action_model_logits)
+            temperature = 0.1
+            pi = th.nn.Softmax(dim=1)(temperature * current_q)
+            eta = (action_model_probs > 1e-2).float() * pi
+            pi_tilde = th.sum(eta, dim=1, keepdim=True)
 
             # Retrieve the q-values for the actions from the replay buffer
             current_q = th.gather(current_q, dim=1, index=replay_data.actions.long())
-            log_pi = th.gather(log_pi, dim=1, index=replay_data.actions.long())
-            log_pa = th.gather(log_pa, dim=1, index=replay_data.actions.long())
+            log_pi = th.log(pi_tilde)
 
             # Apply Entropy regularization
-            target_q += (-self.alpha * log_pi + self.beta * log_pa)
+            target_q += -self.alpha * log_pi
 
+            target_q = target_q.detach()
             # Compute Huber loss (less sensitive to outliers)
             loss = F.smooth_l1_loss(current_q, target_q)
             losses.append(loss.item())

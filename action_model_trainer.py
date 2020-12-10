@@ -31,5 +31,7 @@ class ActionModelTrainer:
         # Clip gradient norm
         torch.nn.utils.clip_grad_norm_(self.action_model.parameters(), max_grad_norm)
         self.optimizer.step()
+        acc = ((action_probs.argmax(dim=1) == batch.actions[:, 0])).float().mean().item()
         logger.record("action model/loss", loss.item())
+        logger.record("action model/accuracy", acc)
         logger.record("action model/entropy", torch.mean(m.entropy()).item())
