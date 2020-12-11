@@ -112,7 +112,10 @@ class MaxEntDQN(DQN):
             a_mask = F.one_hot(th.squeeze(replay_data.actions), self.env.action_space.n).float()
             a_prime_mask = 1 - a_mask
             pi_a = th.sum(a_mask * pi, dim=1, keepdim=True)
-            pi_a_prime = th.sum((action_model_probs > 1e-2).float() * a_prime_mask * pi, dim=1, keepdim=True)
+            active_actions = (action_model_probs > 1e-2).float()
+            pi_a_prime = th.sum(active_actions * a_prime_mask * pi, dim=1, keepdim=True)
+            n_primes = th.mean(th.sum(active_actions * a_prime_mask, dim=1))
+            logger.record("action model/n_primes", n_primes.item(), exclude="tensorboard")
             effective_pi = pi_a
             if self.active:
                 effective_pi += pi_a_prime
