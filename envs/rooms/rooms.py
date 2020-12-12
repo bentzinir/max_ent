@@ -23,21 +23,19 @@ class RoomsEnv(core.Env):
             self.max_steps = max_steps
 
         self.goal_in_state = goal_in_state
-
         self.goal_only_visible_in_room = goal_only_visible_in_room
 
         self.vert_wind = np.array(vert_wind)
         self.horz_wind = np.array(horz_wind)
 
-        n_channels = 2 + goal_in_state
         self.n_repeats = n_repeats
         self.action_space = spaces.Discrete(3 + n_repeats)
         self.spatial = spatial
         self.scale = np.maximum(rows, cols)
+        self.im_size = 42
         if spatial:
             n_channels = 2 + goal_in_state
-            self.observation_space = spaces.Box(low=0, high=1, shape=(n_channels, self.rows, self.cols),
-                                                dtype=np.float32)
+            self.observation_space = spaces.Box(low=0, high=255, shape=(self.im_size, self.im_size, n_channels), dtype=np.uint8)
         else:
             n_channels = 2 + goal_in_state * 2
             self.observation_space = spaces.Box(low=0, high=1, shape=(n_channels,), dtype=np.float32)
@@ -137,8 +135,8 @@ class RoomsEnv(core.Env):
                         im_list.append(np.zeros_like(self.map))
                 else:
                     im_list.append(self.goal)
-
-            return np.stack(im_list, axis=0).astype(np.int8)
+            im_stack = 70 * np.stack(im_list, axis=-1).astype(np.uint8)
+            return cv2.resize(im_stack, dsize=(self.im_size, self.im_size), interpolation=cv2.INTER_AREA)
         else:
             obs = list(self.state_cell)
             if self.goal_in_state:
@@ -190,17 +188,7 @@ class RoomsEnv(core.Env):
         return map, seed
 
     def render(self, mode='human'):
-        im = self._obs_from_state(True)
-        for c in range(im.shape[0]):
-            im[c, :, :] *= c + 1
-        img = (im.sum(0) * 1) * 70
-
-        img = img.astype(np.uint8)
-
-        img = np.stack([img, img, img], axis=-1)
-        # img = cv2.resize(img3, (16, 16), interpolation=cv2.INTER_AREA)
-        #
-        img = cv2.resize(img, dsize=(512, 512), interpolation=cv2.INTER_AREA)
+        img = self._obs_from_state(True)
         if mode == 'rgb_array':
             return img
         elif mode == 'human':

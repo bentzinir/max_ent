@@ -104,7 +104,7 @@ class MaxEntDQN(DQN):
             current_q = self.q_net(replay_data.observations)
 
             # Entropy & Action Uniqueness regularization
-            x = th.cat((replay_data.observations, replay_data.next_observations), dim=-1)
+            x = th.cat((replay_data.observations, replay_data.next_observations), dim=self.action_trainer.cat_dim).float()
             action_model_logits = self.action_trainer.action_model(x)
             action_model_probs = th.nn.Softmax(dim=1)(action_model_logits)
             temperature = 0.1

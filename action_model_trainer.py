@@ -10,16 +10,17 @@ class ActionModelTrainer:
 
     :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
     """
-    def __init__(self, action_model, lr):
+    def __init__(self, action_model, cat_dim, lr):
         self.action_model = action_model
         self.optimizer = torch.optim.Adam(self.action_model.parameters(), lr=lr)
+        self.cat_dim = cat_dim
 
     def train_step(self, batch, max_grad_norm):
         """
         This event is triggered before updating the policy.
         """
 
-        x = torch.cat((batch.observations, batch.next_observations), dim=-1)
+        x = torch.cat((batch.observations, batch.next_observations), dim=self.cat_dim).float()
         predicted = self.action_model(x)
         action_probs = torch.softmax(predicted, dim=-1)
         loss = torch.nn.CrossEntropyLoss()(action_probs, batch.actions.view(-1))
