@@ -121,7 +121,7 @@ class MaxEntDQN(DQN):
                 effective_pi += pi_a_prime
             # Retrieve the q-values for the actions from the replay buffer
             current_q = th.gather(current_q, dim=1, index=replay_data.actions.long())
-            log_pi = th.log(effective_pi)
+            log_pi = th.log(effective_pi).detach()
 
             # Apply Entropy regularization
             target_q += -self.alpha * log_pi

@@ -45,15 +45,15 @@ else:
 
 spatial = True
 lr = 2e-4
-gamma = 0.95
+gamma = 0.9
 buffer_size = 50000
 batch_size = 64
 learning_starts = 50000
 total_timesteps = 250000
-alpha = 0.01
-exploration_final_rate = .05
+alpha = 0.001
+exploration_final_rate = .1
 active = True
-n_repeats = 5
+n_repeats = 10
 
 env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=10, spatial=spatial, goal=[1, 1], state=[8, 8], fixed_reset=True,
                                     n_repeats=n_repeats, cols=10, empty=False, horz_wind=(0, 0), vert_wind=(0, 0), seed=0)])
