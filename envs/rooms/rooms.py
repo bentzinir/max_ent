@@ -18,7 +18,8 @@ class RoomsEnv(core.Env):
         '''
         self.rows, self.cols = rows, cols
         if max_steps is None:
-            self.max_steps = 3 * (rows + cols)
+            repeats = 3 if empty else 5
+            self.max_steps = (rows + cols) * repeats
         else:
             self.max_steps = max_steps
 

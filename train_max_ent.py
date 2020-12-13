@@ -44,19 +44,19 @@ else:
     device = torch.device('cpu')
 
 spatial = True
-lr = 1e-3
-gamma = 0.9
+lr = 2e-4
+gamma = 0.95
 buffer_size = 50000
 batch_size = 64
 learning_starts = 50000
-total_timesteps = 150000
+total_timesteps = 250000
 alpha = 0.01
 exploration_final_rate = .05
 active = True
-n_repeats = 20
+n_repeats = 5
 
 env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=10, spatial=spatial, goal=[1, 1], state=[8, 8], fixed_reset=True,
-                                    n_repeats=n_repeats, cols=10, empty=True, horz_wind=(0, 0), vert_wind=(0, 0), seed=0)])
+                                    n_repeats=n_repeats, cols=10, empty=False, horz_wind=(0, 0), vert_wind=(0, 0), seed=0)])
 
 # 1. Custom Cnn
 if spatial:
