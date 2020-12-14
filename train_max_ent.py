@@ -57,8 +57,8 @@ n_redundancies = 10
 max_repeats = 3
 room_size = 10
 up_wind = 0
-down_wind = 0.2
-right_wind = 0.2
+down_wind = 0.3
+right_wind = 0.3
 left_wind = 0
 
 env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=room_size, cols=room_size, spatial=spatial,

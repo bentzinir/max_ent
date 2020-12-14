@@ -18,7 +18,7 @@ class RoomsEnv(core.Env):
         '''
         self.rows, self.cols = rows, cols
         if max_steps is None:
-            repeats = 3 if empty else 5
+            repeats = 3 if empty else 7
             self.max_steps = (rows + cols) * repeats
         else:
             self.max_steps = max_steps
@@ -75,7 +75,6 @@ class RoomsEnv(core.Env):
 
     def step(self, action: int):
         # actions: 0 = up, 1 = down, 2 = left, 3:end = right
-
         for _ in range(random.randint(1, self.max_repeats)):
             self._move(action)
             wind_up = np.random.choice([-1, 0, 1], p=[1 - self.vert_wind.sum(), self.vert_wind[0], self.vert_wind[1]])
