@@ -116,6 +116,7 @@ class MaxEntDQN(DQN):
             pi_a_prime = th.sum(active_actions * a_prime_mask * pi, dim=1, keepdim=True)
             n_primes = th.mean(th.sum(active_actions * a_prime_mask, dim=1))
             logger.record("action model/n_primes", n_primes.item(), exclude="tensorboard")
+            logger.record("action model/active", self.active, exclude="tensorboard")
             effective_pi = pi_a
             if self.active:
                 effective_pi += pi_a_prime

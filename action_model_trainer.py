@@ -36,3 +36,4 @@ class ActionModelTrainer:
         logger.record("action model/loss", loss.item())
         logger.record("action model/accuracy", acc)
         logger.record("action model/entropy", torch.mean(m.entropy()).item())
+        logger.record("action model/hist", torch.histc(batch.actions, bins=action_probs.shape[1]).tolist())

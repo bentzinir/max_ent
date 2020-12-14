@@ -1,6 +1,6 @@
 import numpy as np
 from gym import core, spaces
-import matplotlib.pyplot as plt
+import random
 import cv2
 
 
@@ -8,7 +8,7 @@ class RoomsEnv(core.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, rows=16, cols=16, empty=False, random_walls=False,
-                 spatial=True, n_repeats=1, goal=None, state=None,
+                 spatial=True, n_redundancies=1, max_repeats=1, goal=None, state=None,
                  goal_in_state=True, max_steps=None,
                  goal_only_visible_in_room=False, seed=None,
                  fixed_reset=False, vert_wind=(0, 0), horz_wind=(0, 0)):
@@ -29,8 +29,9 @@ class RoomsEnv(core.Env):
         self.vert_wind = np.array(vert_wind)
         self.horz_wind = np.array(horz_wind)
 
-        self.n_repeats = n_repeats
-        self.action_space = spaces.Discrete(3 + n_repeats)
+        self.n_redundancies = n_redundancies
+        self.max_repeats = max_repeats
+        self.action_space = spaces.Discrete(3 + n_redundancies)
         self.spatial = spatial
         self.scale = np.maximum(rows, cols)
         self.im_size = 42
@@ -41,7 +42,7 @@ class RoomsEnv(core.Env):
             n_channels = 2 + goal_in_state * 2
             self.observation_space = spaces.Box(low=0, high=1, shape=(n_channels,), dtype=np.float32)
 
-        self.directions = [np.array((-1, 0)), np.array((1, 0)), np.array((0, -1))] + [np.array((0, 1))] * n_repeats
+        self.directions = [np.array((-1, 0)), np.array((1, 0)), np.array((0, -1))] + [np.array((0, 1))] * n_redundancies
         if seed is not None:
             self.rng = np.random.RandomState(seed)
         else:
@@ -74,27 +75,30 @@ class RoomsEnv(core.Env):
 
     def step(self, action: int):
         # actions: 0 = up, 1 = down, 2 = left, 3:end = right
-        self._move(action)
-        wind_up = np.random.choice([-1, 0, 1], p=[1 - self.vert_wind.sum(), self.vert_wind[0], self.vert_wind[1]])
-        wind_right = np.random.choice([-1, 2, 3], p=[1 - self.horz_wind.sum(), self.horz_wind[1], self.horz_wind[0]])
-        if wind_up >= 0:
-            self._move(wind_up)
-        if wind_right >= 0:
-            self._move(wind_right)
 
-        done = np.all(self.state_cell == self.goal_cell)
-        obs = self._obs_from_state(self.spatial)
-        r = float(done)
+        for _ in range(random.randint(1, self.max_repeats)):
+            self._move(action)
+            wind_up = np.random.choice([-1, 0, 1], p=[1 - self.vert_wind.sum(), self.vert_wind[0], self.vert_wind[1]])
+            wind_right = np.random.choice([-1, 2, 3], p=[1 - self.horz_wind.sum(), self.horz_wind[1], self.horz_wind[0]])
+            if wind_up >= 0:
+                self._move(wind_up)
+            if wind_right >= 0:
+                self._move(wind_right)
 
-        if self.nsteps >= self.max_steps:
-            done = True
+            done = np.all(self.state_cell == self.goal_cell)
+            obs = self._obs_from_state(self.spatial)
+            r = float(done)
 
-        self.tot_reward += r
-        self.nsteps += 1
-        info = dict()
+            if self.nsteps >= self.max_steps:
+                done = True
 
-        if done:
-            info['episode'] = {'r': self.tot_reward, 'l': self.nsteps}
+            self.tot_reward += r
+            self.nsteps += 1
+            info = dict()
+
+            if done:
+                info['episode'] = {'r': self.tot_reward, 'l': self.nsteps}
+                break
 
         return obs, r, done, info
 
