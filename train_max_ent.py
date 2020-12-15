@@ -53,12 +53,13 @@ total_timesteps = 250000
 alpha = 0.001
 exploration_final_rate = .1
 active = True
-n_redundancies = 10
+stochastic = True
+n_redundancies = 20
 max_repeats = 3
 room_size = 10
 up_wind = 0
-down_wind = 0.3
-right_wind = 0.3
+down_wind = 0.2
+right_wind = 0.2
 left_wind = 0
 
 env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=room_size, cols=room_size, spatial=spatial,
@@ -102,8 +103,8 @@ else:
 
 action_trainer = ActionModelTrainer(action_model=action_model, cat_dim=cat_dim, lr=lr)
 model = MaxEntDQN(policy, env, verbose=1, gamma=gamma, buffer_size=buffer_size, learning_starts=learning_starts,
-                  action_trainer=action_trainer, device=device, alpha=alpha, active=active, batch_size=batch_size,
-                  exploration_final_eps=exploration_final_rate,
+                  action_trainer=action_trainer, device=device, alpha=alpha, active=active, stochastic=stochastic,
+                  batch_size=batch_size, exploration_final_eps=exploration_final_rate,
                   policy_kwargs=policy_kwargs)
 model.learn(total_timesteps=total_timesteps, log_interval=100)
 model.save("rooms")

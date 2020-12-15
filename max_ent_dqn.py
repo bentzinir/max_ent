@@ -45,6 +45,7 @@ class MaxEntDQN(DQN):
             action_trainer=None,
             alpha=0.1,
             active=True,
+            stochastic=False,
     ):
 
         super(MaxEntDQN, self).__init__(
@@ -77,6 +78,7 @@ class MaxEntDQN(DQN):
         self.action_trainer = action_trainer
         self.alpha = alpha
         self.active = active
+        self.stochastic = stochastic
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Update learning rate according to schedule
@@ -112,20 +114,25 @@ class MaxEntDQN(DQN):
             a_mask = F.one_hot(th.squeeze(replay_data.actions), self.env.action_space.n).float()
             a_prime_mask = 1 - a_mask
             pi_a = th.sum(a_mask * pi, dim=1, keepdim=True)
+            pa_a = th.sum(a_mask * action_model_probs, dim=1, keepdim=True)
             active_actions = (action_model_probs > 1e-2).float()
             pi_a_prime = th.sum(active_actions * a_prime_mask * pi, dim=1, keepdim=True)
             n_primes = th.mean(th.sum(active_actions * a_prime_mask, dim=1))
             logger.record("action model/n_primes", n_primes.item(), exclude="tensorboard")
             logger.record("action model/active", self.active, exclude="tensorboard")
-            effective_pi = pi_a
+            logger.record("action model/stochastic", self.stochastic, exclude="tensorboard")
             if self.active:
-                effective_pi += pi_a_prime
+                if self.stochastic:
+                    e = th.clamp(th.div(pi_a, pa_a), min=0.2, max=5)
+                else:
+                    e = pi_a + pi_a_prime
+            else:
+                e = pi_a
             # Retrieve the q-values for the actions from the replay buffer
             current_q = th.gather(current_q, dim=1, index=replay_data.actions.long())
-            log_pi = th.log(effective_pi).detach()
 
             # Apply Entropy regularization
-            target_q += -self.alpha * log_pi
+            target_q += -self.alpha * th.log(e).detach()
 
             target_q = target_q.detach()
             # Compute Huber loss (less sensitive to outliers)
