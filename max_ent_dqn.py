@@ -44,8 +44,7 @@ class MaxEntDQN(DQN):
             _init_setup_model: bool = True,
             action_trainer=None,
             alpha=0.1,
-            active=True,
-            stochastic=False,
+            method='none',
     ):
 
         super(MaxEntDQN, self).__init__(
@@ -77,8 +76,7 @@ class MaxEntDQN(DQN):
 
         self.action_trainer = action_trainer
         self.alpha = alpha
-        self.active = active
-        self.stochastic = stochastic
+        self.method = method
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Update learning rate according to schedule
@@ -119,20 +117,26 @@ class MaxEntDQN(DQN):
             pi_a_prime = th.sum(active_actions * a_prime_mask * pi, dim=1, keepdim=True)
             n_primes = th.mean(th.sum(active_actions * a_prime_mask, dim=1))
             logger.record("action model/n_primes", n_primes.item(), exclude="tensorboard")
-            logger.record("action model/active", self.active, exclude="tensorboard")
-            logger.record("action model/stochastic", self.stochastic, exclude="tensorboard")
-            if self.active:
-                if self.stochastic:
-                    e = th.clamp(th.div(pi_a, pa_a), min=0.2, max=5)
+            logger.record("action model/method", self.method, exclude="tensorboard")
+            with th.no_grad():
+                if self.method == 'none':
+                    g = 0
+                elif self.method == 'action':
+                    g = - th.log(pi_a)
+                elif self.method == 'next_det':
+                    g = - th.log(pi_a + pi_a_prime)
+                elif self.method == 'next_abs':
+                    g = th.abs(th.clamp(th.div(pa_a, pi_a), min=0.2, max=5) - 1)
+                elif self.method == 'next_log':
+                    g = th.log(th.clamp(th.div(pa_a, pi_a), min=0.2, max=5))
                 else:
-                    e = pi_a + pi_a_prime
-            else:
-                e = pi_a
+                    raise ValueError
+
             # Retrieve the q-values for the actions from the replay buffer
             current_q = th.gather(current_q, dim=1, index=replay_data.actions.long())
 
             # Apply Entropy regularization
-            target_q += -self.alpha * th.log(e).detach()
+            target_q += self.alpha * g
 
             target_q = target_q.detach()
             # Compute Huber loss (less sensitive to outliers)

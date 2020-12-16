@@ -52,8 +52,13 @@ learning_starts = 50000
 total_timesteps = 250000
 alpha = 0.001
 exploration_final_rate = .1
-active = True
-stochastic = True
+# Regularization types:
+# 1. none: g = 0
+# 2. action: g = -log_pi
+# 3. next_det: g = -log (pi_a + eta)
+# 4. next_abs: g = |pa/p_i - 1|
+# 5. next_log: g = log(pa/pi)
+method = 'next_abs'
 n_redundancies = 20
 max_repeats = 3
 room_size = 10
@@ -103,7 +108,7 @@ else:
 
 action_trainer = ActionModelTrainer(action_model=action_model, cat_dim=cat_dim, lr=lr)
 model = MaxEntDQN(policy, env, verbose=1, gamma=gamma, buffer_size=buffer_size, learning_starts=learning_starts,
-                  action_trainer=action_trainer, device=device, alpha=alpha, active=active, stochastic=stochastic,
+                  action_trainer=action_trainer, device=device, alpha=alpha, method=method,
                   batch_size=batch_size, exploration_final_eps=exploration_final_rate,
                   policy_kwargs=policy_kwargs)
 model.learn(total_timesteps=total_timesteps, log_interval=100)
