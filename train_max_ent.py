@@ -17,20 +17,13 @@ import GPUtil
 def eval_policy(env, model, steps=1000, desc=''):
     obs = env.reset()
     traj_rewards = [0]
-    acc = 0
     for _ in tqdm(range(steps), desc=desc, leave=True):
         action, _state = model.predict(obs, deterministic=False)
-        # print(f" time: {_}, action: {action}, obs.shape: {obs.shape}")
         next_obs, reward, done, info = env.step(action)
-        # x = np.concatenate([obs, next_obs], axis=3)
-        # a_prob = model.action_trainer.action_model(torch.tensor(x, device=model.device))
-        # a_predicted = a_prob.detach().cpu().numpy()[0].argmax()
-        # acc = 0.99 * acc + 0.01 * (action[0] == a_predicted)
         obs = next_obs
         env.render()
         time.sleep(0.03)
         traj_rewards[-1] += reward
-        # print(f"accuracy: {acc}")
         if done:
             obs = env.reset()
             traj_rewards.append(0)
@@ -43,7 +36,6 @@ if torch.cuda.is_available():
 else:
     device = torch.device('cpu')
 
-spatial = True
 lr = 2e-4
 gamma = 0.9
 buffer_size = 50000
@@ -58,7 +50,9 @@ exploration_final_rate = .1
 # 3. next_det: g = -log (pi_a + eta)
 # 4. next_abs: g = |pa/p_i - 1|
 # 5. next_log: g = log(pa/pi)
-method = 'next_abs'
+method = 'next_det'
+spatial = True
+discrete = True
 n_redundancies = 20
 max_repeats = 3
 room_size = 10
@@ -67,7 +61,7 @@ down_wind = 0.2
 right_wind = 0.2
 left_wind = 0
 
-env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=room_size, cols=room_size, spatial=spatial,
+env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=room_size, cols=room_size, discrete=discrete, spatial=spatial,
                                     goal=[1, 1], state=[room_size - 2, room_size - 2],
                                     fixed_reset=True, n_redundancies=n_redundancies, max_repeats=max_repeats,
                                     horz_wind=(right_wind, left_wind), vert_wind=(up_wind, down_wind),

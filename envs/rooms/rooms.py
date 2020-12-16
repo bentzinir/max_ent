@@ -2,12 +2,14 @@ import numpy as np
 from gym import core, spaces
 import random
 import cv2
+from tqdm import tqdm
+import time
 
 
 class RoomsEnv(core.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, rows=16, cols=16, empty=False, random_walls=False,
+    def __init__(self, rows=16, cols=16, empty=False, random_walls=False, discrete=True,
                  spatial=True, n_redundancies=1, max_repeats=1, goal=None, state=None,
                  goal_in_state=True, max_steps=None,
                  goal_only_visible_in_room=False, seed=None,
@@ -31,10 +33,16 @@ class RoomsEnv(core.Env):
 
         self.n_redundancies = n_redundancies
         self.max_repeats = max_repeats
-        self.action_space = spaces.Discrete(3 + n_redundancies)
         self.spatial = spatial
+        self.discrete = discrete
         self.scale = np.maximum(rows, cols)
         self.im_size = 42
+        # Action space
+        if self.discrete:
+            self.action_space = spaces.Discrete(3 + n_redundancies)
+        else:
+            self.action_space = spaces.Box(low=0, high=1, shape=(2 + n_redundancies, 1))
+        # Observation Space
         if spatial:
             n_channels = 2 + goal_in_state
             self.observation_space = spaces.Box(low=0, high=255, shape=(self.im_size, self.im_size, n_channels), dtype=np.uint8)
@@ -80,9 +88,9 @@ class RoomsEnv(core.Env):
             wind_up = np.random.choice([-1, 0, 1], p=[1 - self.vert_wind.sum(), self.vert_wind[0], self.vert_wind[1]])
             wind_right = np.random.choice([-1, 2, 3], p=[1 - self.horz_wind.sum(), self.horz_wind[1], self.horz_wind[0]])
             if wind_up >= 0:
-                self._move(wind_up)
+                self._move(wind_up, discrete=True)
             if wind_right >= 0:
-                self._move(wind_right)
+                self._move(wind_right, discrete=True)
 
             done = np.all(self.state_cell == self.goal_cell)
             obs = self._obs_from_state(self.spatial)
@@ -101,15 +109,31 @@ class RoomsEnv(core.Env):
 
         return obs, r, done, info
 
-    def _move(self, action: int):
-        next_cell = self.state_cell + self.directions[action]
+    def _next_cell_discrete(self, action):
+        return self.state_cell + self.directions[action]
+
+    def _next_cell_continuous(self, action):
+        xy = 1 * action[:2]
+        angles = action[2:]
+        for angle in angles:
+            theta = angle[0] * 2 * np.pi
+            R = np.array([[np.cos(theta), -np.sin(theta)],
+                          [np.sin(theta), np.cos(theta)]])
+            xy = R @ xy
+        next_cell = np.round(self.state_cell + xy.squeeze()).astype(np.int)
+        return next_cell
+
+    def _move(self, action, discrete=None):
+        if self.discrete or discrete:
+            next_cell = self._next_cell_discrete(action)
+        else:
+            next_cell = self._next_cell_continuous(action)
+
         if self.map[next_cell[0], next_cell[1]] == 0:
             self.state_cell = next_cell
             self.state = np.zeros_like(self.map)
-            for i in [0]:  # [-1, 0, 1]:
-                for j in [0]:  # [-1, 0, 1]:
-                    self.state[(self.state_cell[0] + i):(self.state_cell[0] + i + 1),
-                               (self.state_cell[1] + j):(self.state_cell[1] + j + 1)] = 1
+            self.state[(self.state_cell[0]):(self.state_cell[0] + 1),
+                       (self.state_cell[1]):(self.state_cell[1] + 1)] = 1
 
     def _random_from_map(self, goal):
         if goal is None:
@@ -204,8 +228,26 @@ class RoomsEnv(core.Env):
 
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    env = RoomsEnv()
+
+    n_redundancies = 10
+    discrete = False
+    spatial = True
+    max_repeats = 1
+    room_size = 16
+    up_wind = 0
+    down_wind = 0.0
+    right_wind = 0.0
+    left_wind = 0
+
+    env = RoomsEnv(rows=room_size, cols=room_size, discrete=discrete, spatial=spatial,
+                   goal=[1, 1], state=[room_size - 2, room_size - 2],
+                   fixed_reset=True, n_redundancies=n_redundancies, max_repeats=max_repeats,
+                   horz_wind=(right_wind, left_wind), vert_wind=(up_wind, down_wind), empty=False, seed=0)
+
     obs = env.reset()
-    plt.imshow(obs);
-    plt.show()
+    for _ in tqdm(range(10000), desc='', leave=True):
+        obs, reward, done, info = env.step(env.action_space.sample())
+        env.render()
+        time.sleep(0.03)
+        if done:
+            obs = env.reset()
