@@ -120,7 +120,7 @@ class MaxEntDQN(DQN):
             logger.record("action model/method", self.method, exclude="tensorboard")
             with th.no_grad():
                 if self.method == 'none':
-                    g = 0
+                    g = 0.0
                 elif self.method == 'action':
                     g = - th.log(pi_a)
                 elif self.method == 'next_det':

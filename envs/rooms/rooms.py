@@ -41,7 +41,7 @@ class RoomsEnv(core.Env):
         if self.discrete:
             self.action_space = spaces.Discrete(3 + n_redundancies)
         else:
-            self.action_space = spaces.Box(low=0, high=1, shape=(2 + n_redundancies, 1))
+            self.action_space = spaces.Box(low=-1, high=1, shape=(2 + n_redundancies, 1))
         # Observation Space
         if spatial:
             n_channels = 2 + goal_in_state
@@ -113,15 +113,23 @@ class RoomsEnv(core.Env):
         return self.state_cell + self.directions[action]
 
     def _next_cell_continuous(self, action):
-        xy = 1 * action[:2]
+        xy = action[:2]
         angles = action[2:]
-        for angle in angles:
-            theta = angle[0] * 2 * np.pi
-            R = np.array([[np.cos(theta), -np.sin(theta)],
-                          [np.sin(theta), np.cos(theta)]])
-            xy = R @ xy
+        # for angle in angles:
+        #     theta = angle[0] * np.pi
+        #     R = np.array([[np.cos(theta), -np.sin(theta)],
+        #                   [np.sin(theta), np.cos(theta)]])
+        #     xy = R @ xy
+        xy = self._star_deform(xy)
+
         next_cell = np.round(self.state_cell + xy.squeeze()).astype(np.int)
         return next_cell
+
+    def _star_deform(self, xy):
+        x, y = xy
+        dx = np.abs(y) * x**2 * np.sign(-x)
+        dy = np.abs(x) * y**1 * np.sign(-y)
+        return np.array([x+dx, y+dy])
 
     def _move(self, action, discrete=None):
         if self.discrete or discrete:
@@ -136,6 +144,7 @@ class RoomsEnv(core.Env):
                        (self.state_cell[1]):(self.state_cell[1] + 1)] = 1
 
     def _random_from_map(self, goal):
+
         if goal is None:
             cell = self.rng.choice(self.rows), self.rng.choice(self.cols)
         else:
@@ -229,11 +238,11 @@ class RoomsEnv(core.Env):
 
 if __name__ == '__main__':
 
-    n_redundancies = 10
+    n_redundancies = 1
     discrete = False
     spatial = True
     max_repeats = 1
-    room_size = 16
+    room_size = 42
     up_wind = 0
     down_wind = 0.0
     right_wind = 0.0
