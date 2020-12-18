@@ -5,14 +5,10 @@ import torch as th
 from torch.nn import functional as F
 
 from stable_baselines3.common import logger
-from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
-from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
-from stable_baselines3.common.utils import get_linear_fn, polyak_update
+from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.dqn.policies import DQNPolicy
 
 from stable_baselines3.dqn import DQN
-
-from types import SimpleNamespace
 
 
 class MaxEntDQN(DQN):
@@ -43,7 +39,7 @@ class MaxEntDQN(DQN):
             device: Union[th.device, str] = "auto",
             _init_setup_model: bool = True,
             action_trainer=None,
-            alpha=0.1,
+            ent_coef=0.1,
             method='none',
     ):
 
@@ -75,7 +71,7 @@ class MaxEntDQN(DQN):
         )
 
         self.action_trainer = action_trainer
-        self.alpha = alpha
+        self.ent_coef = ent_coef
         self.method = method
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
@@ -105,7 +101,7 @@ class MaxEntDQN(DQN):
 
             # Entropy & Action Uniqueness regularization
             x = th.cat((replay_data.observations, replay_data.next_observations), dim=self.action_trainer.cat_dim).float()
-            action_model_logits = self.action_trainer.action_model(x)
+            action_model_logits = self.action_trainer.action_model.q_net(x)
             action_model_probs = th.nn.Softmax(dim=1)(action_model_logits)
             temperature = 0.1
             pi = th.nn.Softmax(dim=1)(temperature * current_q)
@@ -136,7 +132,7 @@ class MaxEntDQN(DQN):
             current_q = th.gather(current_q, dim=1, index=replay_data.actions.long())
 
             # Apply Entropy regularization
-            target_q += self.alpha * g
+            target_q += self.ent_coef * g
 
             target_q = target_q.detach()
             # Compute Huber loss (less sensitive to outliers)
