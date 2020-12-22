@@ -1,14 +1,13 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
-
+import types
 import numpy as np
 import torch as th
 from torch.nn import functional as F
-
 from stable_baselines3.common import logger
 from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.dqn.policies import DQNPolicy
-
 from stable_baselines3.dqn import DQN
+from stable_baselines3.common.distributions import Categorical
 
 
 class MaxEntDQN(DQN):
@@ -41,6 +40,7 @@ class MaxEntDQN(DQN):
             action_trainer=None,
             ent_coef=0.1,
             method='none',
+            temperature=1,
     ):
 
         super(MaxEntDQN, self).__init__(
@@ -70,9 +70,23 @@ class MaxEntDQN(DQN):
             _init_setup_model,
         )
 
+        def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
+            q_values = self.forward(observation)
+            # Greedy action
+            if deterministic:
+                action = q_values.argmax(dim=1).reshape(-1)
+            else:
+                pi = th.nn.Softmax(dim=1)(q_values / temperature)
+                action = Categorical(probs=pi).sample()
+            return action
+
+        # replace self.q_net._predict with _predict for this object only
+        self.q_net._predict = types.MethodType(_predict, self.q_net)
+
         self.action_trainer = action_trainer
         self.ent_coef = ent_coef
         self.method = method
+        self.temperature = temperature
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Update learning rate according to schedule
@@ -90,7 +104,10 @@ class MaxEntDQN(DQN):
                 # Compute the target Q values
                 target_q = self.q_net_target(replay_data.next_observations)
                 # Follow greedy policy: use the one with the highest value
-                target_q, _ = target_q.max(dim=1)
+                # target_q, _ = target_q.max(dim=1)
+                # TODO: changing from Q-learning to SARSA-like training
+                next_pi = th.nn.Softmax(dim=1)(target_q / self.temperature)
+                target_q = (next_pi * target_q).sum(-1)
                 # Avoid potential broadcast issue
                 target_q = target_q.reshape(-1, 1)
                 # 1-step TD target
@@ -103,8 +120,7 @@ class MaxEntDQN(DQN):
             x = th.cat((replay_data.observations, replay_data.next_observations), dim=self.action_trainer.cat_dim).float()
             action_model_logits = self.action_trainer.action_model.q_net(x)
             action_model_probs = th.nn.Softmax(dim=1)(action_model_logits)
-            temperature = 0.1
-            pi = th.nn.Softmax(dim=1)(temperature * current_q)
+            pi = th.nn.Softmax(dim=1)(current_q / self.temperature)
             a_mask = F.one_hot(th.squeeze(replay_data.actions), self.env.action_space.n).float()
             a_prime_mask = 1 - a_mask
             pi_a = th.sum(a_mask * pi, dim=1, keepdim=True)

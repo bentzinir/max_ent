@@ -36,8 +36,9 @@ gamma = 0.9
 buffer_size = 50000
 batch_size = 64
 learning_starts = 50000
-total_timesteps = 250000
+total_timesteps = 150000
 ent_coef = 0.01
+temperature = 0.01
 exploration_final_rate = .1
 # Regularization types:
 # 1. none: g = 0
@@ -89,7 +90,8 @@ action_model = Model(observation_space=ssprime_obs_space,
 
 action_trainer = ActionModelTrainer(action_model=action_model, cat_dim=cat_dim, discrete=discrete, lr=lr)
 model = Algorithm(policy, env, verbose=1, gamma=gamma, buffer_size=buffer_size, learning_starts=learning_starts,
-                  action_trainer=action_trainer, device=device, ent_coef=ent_coef, method=method,
+                  action_trainer=action_trainer, device=device,
+                  ent_coef=ent_coef, method=method, temperature=temperature,
                   batch_size=batch_size, exploration_final_eps=exploration_final_rate,
                   policy_kwargs={})
 model.learn(total_timesteps=total_timesteps, log_interval=100)
