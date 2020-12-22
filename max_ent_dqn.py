@@ -118,13 +118,15 @@ class MaxEntDQN(DQN):
                 if self.method == 'none':
                     g = 0.0
                 elif self.method == 'action':
-                    g = - th.log(pi_a)
+                    g = - th.log(pi_a + 1e-2)
                 elif self.method == 'next_det':
-                    g = - th.log(pi_a + pi_a_prime)
+                    g = - th.log(pi_a + pi_a_prime + 1e-2)
+                elif self.method == 'next_det_nir':
+                    g = - pi_a * th.log(pi_a + pi_a_prime + 1e-2)
                 elif self.method == 'next_abs':
-                    g = th.abs(th.clamp(th.div(pa_a, pi_a), min=0.2, max=5) - 1)
+                    g = th.abs(th.clamp(th.div(pa_a, pi_a + 1e-2), min=0.2, max=5) - 1)
                 elif self.method == 'next_log':
-                    g = th.log(th.clamp(th.div(pa_a, pi_a), min=0.2, max=5))
+                    g = th.log(th.clamp(th.div(pa_a, pi_a + 1e-2), min=0.2, max=5))
                 else:
                     raise ValueError
 

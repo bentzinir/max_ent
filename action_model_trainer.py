@@ -1,4 +1,3 @@
-from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common import logger
 import torch
 from torch.distributions.categorical import Categorical
@@ -52,8 +51,8 @@ class ActionModelTrainer:
         # 2 use N(ss') to calculate the probability of actually played action
         a_logp = self.action_model.actor.action_dist.log_prob(batch.actions)
 
-        loss = -a_logp.mean()
         # Optimize the action model
+        loss = -a_logp.mean()
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()

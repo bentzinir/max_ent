@@ -92,12 +92,14 @@ class MaxEntSAC(SAC):
         ent_coef_losses, ent_coefs = [], []
         actor_losses, critic_losses = [], []
 
+        plain_sac = False
         for gradient_step in range(gradient_steps):
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
             # train action model
-            self.action_trainer.train_step(replay_data)
+            if not plain_sac:
+                self.action_trainer.train_step(replay_data)
 
             # We need to sample because `log_std` may have changed between two gradient steps
             if self.use_sde:
@@ -134,34 +136,52 @@ class MaxEntSAC(SAC):
                 targets = th.cat(self.critic_target(replay_data.next_observations, next_actions), dim=1)
                 target_q, _ = th.min(targets, dim=1, keepdim=True)
                 # add entropy term
-                # OLD
-                # target_q = target_q - ent_coef * next_log_prob.reshape(-1, 1)
-                ###############################
-                # NEW
-                # Entropy & Action Uniqueness regularization
-                # 1. build s,s'=f(s,a) distribution function
-                x = th.cat((replay_data.observations, replay_data.next_observations),
-                           dim=self.action_trainer.cat_dim).float()
-                # 1.1 calculate mu, sigma of the Gaussian action model
-                mu, log_std, _ = self.action_trainer.action_model.actor.get_action_dist_params(x)
-                # 1.2 update probability distribution with calculated mu, log_std
-                self.action_trainer.action_model.actor.action_dist.proba_distribution(mu, log_std)
-                # 2 use N(ss') to calculate the probability of a fresh sample from pi
-                aprime_logp = self.action_trainer.action_model.actor.action_dist.log_prob(actions_pi)
+                if plain_sac:
+                    # OLD
+                    target_q = target_q - ent_coef * next_log_prob.reshape(-1, 1)
+                else:
+                    ###############################
+                    # NEW
+                    # Entropy & Action Uniqueness regularization
+                    # 1. build s,s'=f(s,a) distribution function
+                    x = th.cat((replay_data.observations, replay_data.next_observations),
+                               dim=self.action_trainer.cat_dim).float()
+                    # 1.1 calculate mu, sigma of the Gaussian action model
+                    mu, log_std, _ = self.action_trainer.action_model.actor.get_action_dist_params(x)
+                    # 1.2 update probability distribution with calculated mu, log_std
+                    self.action_trainer.action_model.actor.action_dist.proba_distribution(mu, log_std)
+                    # 2 use N(ss') to calculate the probability of a fresh sample from pi
+                    aprime_logp = self.action_trainer.action_model.actor.action_dist.log_prob(actions_pi)
+                    # 3. get the probability of the actually played action
+                    mu, log_std, _ = self.actor.get_action_dist_params(replay_data.observations)
+                    # 3.1 update probability distribution with calculated mu, log_std
+                    self.actor.action_dist.proba_distribution(mu, log_std)
+                    # 3.2 get the probability of replay_data.actions from the actor
+                    replay_action_logp = self.actor.action_dist.log_prob(replay_data.actions)
 
-                with th.no_grad():
-                    if self.method == 'none':
-                        g = 0.0
-                    elif self.method == 'action':
-                        g = - ent_coef * next_log_prob.reshape(-1, 1)
-                    elif self.method == 'next_log':
-                        g = - ent_coef * next_log_prob.reshape(-1, 1) +\
-                             ent_coef * aprime_logp.reshape(-1, 1)
-                    else:
-                        raise ValueError
-                target_q = target_q + g
-                logger.record("action model/method", self.method, exclude="tensorboard")
-                ###############################
+                    with th.no_grad():
+                        if self.method == 'none':
+                            g = 0.0
+                        elif self.method == 'action':
+                            g = - ent_coef * next_log_prob
+                        elif self.method == 'next_log':
+                            # This is dangerous!
+                            # g = - ent_coef * (replay_action_logp - aprime_logp)
+                            # This is safer
+                            g = - ent_coef * (next_log_prob - aprime_logp)
+                        elif self.method == 'next_abs':
+                            g = ent_coef * th.abs(th.clamp(th.div(th.exp(aprime_logp),
+                                                                  th.exp(replay_action_logp)), min=0.2, max=5) - 1)
+                        else:
+                            raise ValueError
+                    if th.any(th.isnan(g)).item():
+                        print("Nan in g")
+                    target_q = target_q + g.reshape(-1, 1).detach()
+                    logger.record("action model/method", self.method, exclude="tensorboard")
+                    logger.record("action model/g_min", g.min().item(), exclude="tensorboard")
+                    logger.record("action model/g_mean", g.mean().item(), exclude="tensorboard")
+                    logger.record("action model/g_max", g.max().item(), exclude="tensorboard")
+                    ###############################
 
                 # td error + entropy term
                 q_backup = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_q

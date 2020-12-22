@@ -37,7 +37,7 @@ buffer_size = 50000
 batch_size = 64
 learning_starts = 50000
 total_timesteps = 250000
-ent_coef = 0.001
+ent_coef = 0.01
 exploration_final_rate = .1
 # Regularization types:
 # 1. none: g = 0
@@ -50,10 +50,10 @@ discrete = True
 n_redundancies = 4
 max_repeats = 3
 room_size = 10
-up_wind = 0
-down_wind = 0.2
-right_wind = 0.2
-left_wind = 0
+up_wind = 0.0
+down_wind = 0.0
+right_wind = 0.0
+left_wind = 0.0
 
 env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=room_size, cols=room_size, discrete=discrete,
                                     goal=[1, 1], state=[room_size - 2, room_size - 2],
@@ -71,8 +71,8 @@ if discrete:
     cat_dim = 1
 else:
     from max_ent_sac import MaxEntSAC as Algorithm
-    from stable_baselines3.sac import MlpPolicy as Model
-    # from continuous_model import ContModel as Model
+    # from stable_baselines3.sac import MlpPolicy as Model
+    from continuous_action_model import DiagGaussianPolicy as Model
     ssprime_shape = (2*obs_shape[0],)
     policy = 'MlpPolicy'
     cat_dim = 1
@@ -85,14 +85,14 @@ ssprime_obs_space = gym.spaces.Box(low=env.observation_space.low.min(),
 
 action_model = Model(observation_space=ssprime_obs_space,
                      action_space=env.action_space,
-                     lr_schedule=lambda x: lr)
+                     lr_schedule=lambda x: lr).to(device)
 
 action_trainer = ActionModelTrainer(action_model=action_model, cat_dim=cat_dim, discrete=discrete, lr=lr)
 model = Algorithm(policy, env, verbose=1, gamma=gamma, buffer_size=buffer_size, learning_starts=learning_starts,
                   action_trainer=action_trainer, device=device, ent_coef=ent_coef, method=method,
                   batch_size=batch_size, exploration_final_eps=exploration_final_rate,
                   policy_kwargs={})
-model.learn(total_timesteps=total_timesteps, log_interval=10)
+model.learn(total_timesteps=total_timesteps, log_interval=100)
 model.save("rooms")
 
 eval_res = eval_policy(env, model, desc='Evaluating model')

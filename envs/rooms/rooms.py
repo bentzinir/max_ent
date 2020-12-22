@@ -36,16 +36,17 @@ class RoomsEnv(core.Env):
         self.discrete = discrete
         self.scale = np.maximum(rows, cols)
         self.im_size = 42
+        self.goal_th = 1
         if self.discrete:
             self.action_space = spaces.Discrete(3 + n_redundancies)
             n_channels = 2 + goal_in_state
             self.observation_space = spaces.Box(low=0, high=255, shape=(self.im_size, self.im_size, n_channels), dtype=np.uint8)
+            self.directions = [np.array((-1, 0)), np.array((1, 0)), np.array((0, -1))] + [
+                np.array((0, 1))] * n_redundancies
         else:
             self.action_space = spaces.Box(low=-1, high=1, shape=(2,))
             n_channels = 2 + goal_in_state * 2
             self.observation_space = spaces.Box(low=0, high=1, shape=(n_channels,), dtype=np.float32)
-
-        self.directions = [np.array((-1, 0)), np.array((1, 0)), np.array((0, -1))] + [np.array((0, 1))] * n_redundancies
         if seed is not None:
             self.rng = np.random.RandomState(seed)
         else:
@@ -82,14 +83,10 @@ class RoomsEnv(core.Env):
         # actions: 0 = up, 1 = down, 2 = left, 3:end = right
         for _ in range(random.randint(1, self.max_repeats)):
             self._move(action)
-            wind_up = np.random.choice([-1, 0, 1], p=[1 - self.vert_wind.sum(), self.vert_wind[0], self.vert_wind[1]])
-            wind_right = np.random.choice([-1, 2, 3], p=[1 - self.horz_wind.sum(), self.horz_wind[1], self.horz_wind[0]])
-            if wind_up >= 0:
-                self._move(wind_up, discrete=True)
-            if wind_right >= 0:
-                self._move(wind_right, discrete=True)
-
-            done = np.all(self.state_cell == self.goal_cell)
+            if self.discrete:
+                done = np.all(self.state_cell == self.goal_cell)
+            else:
+                done = np.abs((self.pos - self.goal_cell)).sum() < self.goal_th
             obs = self._obs_from_state(self.discrete)
             r = float(done)
 
@@ -112,12 +109,19 @@ class RoomsEnv(core.Env):
             return self._move_continuous(action)
 
     def _move_discrete(self, action):
-        next_cell = self.state_cell + self.directions[action]
-        if self.map[next_cell[0], next_cell[1]] == 0:
-            self.state_cell = next_cell
-            self.state = np.zeros_like(self.map)
-            self.state[(self.state_cell[0]):(self.state_cell[0] + 1),
-                       (self.state_cell[1]):(self.state_cell[1] + 1)] = 1
+        wind_u = np.random.binomial(n=1, p=self.vert_wind[0])
+        wind_d = np.random.binomial(n=1, p=self.vert_wind[1])
+        wind_r = np.random.binomial(n=1, p=self.horz_wind[0])
+        wind_l = np.random.binomial(n=1, p=self.horz_wind[1])
+        next_cell = self.state_cell + self.directions[action] + [wind_d - wind_u, wind_r - wind_l]
+        try:
+            if self.map[next_cell[0], next_cell[1]] == 0:
+                self.state_cell = next_cell
+                self.state = np.zeros_like(self.map)
+                self.state[(self.state_cell[0]):(self.state_cell[0] + 1),
+                           (self.state_cell[1]):(self.state_cell[1] + 1)] = 1
+        except IndexError:
+            return
 
     def _move_continuous(self, action, ex=1, ey=1):
         xy = action
@@ -129,15 +133,25 @@ class RoomsEnv(core.Env):
         if x < 0:
             ex = self.n_redundancies
         new_pos = [np.sign(x) * abs(x**ex), np.sign(y) * abs(y**ey)] + self.pos
+
+        wind_u = np.random.normal(self.vert_wind[0], 0.1)
+        wind_d = np.random.normal(self.vert_wind[1], 0.1)
+        wind_r = np.random.normal(self.horz_wind[0], 0.1)
+        wind_l = np.random.normal(self.horz_wind[1], 0.1)
+        new_pos += [wind_d - wind_u, wind_r - wind_l]
+
         next_cell = np.round(new_pos).astype(np.int)
-        if self.map[next_cell[0], next_cell[1]] == 0 and \
-                np.all(next_cell) >= 0 and \
-                next_cell[0] < self.rows - 1 and next_cell[1] < self.cols - 1:
-            self.state_cell = next_cell
-            self.pos = new_pos
-            self.state = np.zeros_like(self.map)
-            self.state[(self.state_cell[0]):(self.state_cell[0] + 1),
-                       (self.state_cell[1]):(self.state_cell[1] + 1)] = 1
+        try:
+            if self.map[next_cell[0], next_cell[1]] == 0 and \
+                    np.all(next_cell) >= 0 and \
+                    next_cell[0] < self.rows - 1 and next_cell[1] < self.cols - 1:
+                self.state_cell = next_cell
+                self.pos = new_pos
+                self.state = np.zeros_like(self.map)
+                self.state[(self.state_cell[0]):(self.state_cell[0] + 1),
+                           (self.state_cell[1]):(self.state_cell[1] + 1)] = 1
+        except IndexError:
+            return
 
     def _random_from_map(self, goal):
         if goal is None:
@@ -236,10 +250,10 @@ if __name__ == '__main__':
     discrete = False
     max_repeats = 1
     room_size = 10
-    up_wind = 0
-    down_wind = 0.0
-    right_wind = 0.0
-    left_wind = 0
+    up_wind = 0.
+    down_wind = 0.
+    right_wind = 0.
+    left_wind = 0.
 
     env = RoomsEnv(rows=room_size, cols=room_size, discrete=discrete,
                    goal=[1, 1], state=[room_size - 2, room_size - 2],
