@@ -7,8 +7,12 @@ from torch.nn import functional as F
 from stable_baselines3.common import logger
 from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.dqn.policies import DQNPolicy
-
 from stable_baselines3.dqn import DQN
+import types
+from stable_baselines3.common.distributions import Categorical
+from ensemble.common.buffers import EnsembleReplayBuffer
+from ensemble.common.collect_rollout import collect_rollouts
+from ensemble.common.sample_action import sample_action
 
 
 class MaxEntDQN(DQN):
@@ -38,12 +42,13 @@ class MaxEntDQN(DQN):
             seed: Optional[int] = None,
             device: Union[th.device, str] = "auto",
             _init_setup_model: bool = True,
-            action_trainer=None,
+            discrimination_trainer=None,
             ent_coef: float = 0.1,
             method: str = 'none',
             temperature: float = 1,
+            ensemble_size: int = 1,
     ):
-
+        policy_kwargs.update({"ensemble_size": ensemble_size})
         super(MaxEntDQN, self).__init__(
             policy,
             env,
@@ -71,10 +76,44 @@ class MaxEntDQN(DQN):
             _init_setup_model,
         )
 
-        self.action_trainer = action_trainer
+        def soft_predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
+            q_values = self.forward(observation)
+            b, c = q_values.shape
+            q_values = q_values.view(b, self.ensemble_size, -1)
+            # Greedy action
+            if deterministic:
+                action = q_values.argmax(dim=1).reshape(-1)
+            else:
+                action = []
+                for e in range(self.ensemble_size):
+                    pi = th.nn.Softmax(dim=1)(q_values[:, e, :] / temperature)
+                    action.append(Categorical(probs=pi).sample())
+            return th.cat(action)
+
+        # replace self.q_net._predict with soft_predict for this object only
+        self.q_net._predict = types.MethodType(soft_predict, self.q_net)
+
+        # override collect_rollout method for this object only
+        self.collect_rollouts = types.MethodType(collect_rollouts, self)
+
+        # override _sample_action method for this object only
+        self._sample_action = types.MethodType(sample_action, self)
+
+        # override replay buffer
+        self.replay_buffer = EnsembleReplayBuffer(
+            self.buffer_size,
+            self.observation_space,
+            self.action_space,
+            self.device,
+            optimize_memory_usage=self.optimize_memory_usage,
+            ensemble_size=ensemble_size,
+        )
+
+        self.discrimination_trainer = discrimination_trainer
         self.ent_coef = ent_coef
         self.method = method
         self.temperature = temperature
+        self.ensemble_size = ensemble_size
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Update learning rate according to schedule
@@ -85,41 +124,61 @@ class MaxEntDQN(DQN):
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
-            # train action model
-            # self.action_trainer.train_step(replay_data, max_grad_norm=self.max_grad_norm)
+            b, c, h, w = replay_data.observations.shape
+
+            # train discrimination model
+            if self.method == 'state':
+                self.discrimination_trainer.train_step(replay_data, max_grad_norm=self.max_grad_norm)
 
             with th.no_grad():
                 # Compute the target Q values
-                target_q = self.q_net_target(replay_data.next_observations)
-                # Follow greedy policy: use the one with the highest value
-                target_q, _ = target_q.max(dim=1)
-                # Avoid potential broadcast issue
-                target_q = target_q.reshape(-1, 1)
+                target_q = self.q_net_target(replay_data.next_observations).view(b, self.ensemble_size, -1)
+                # Follow softmax policy
+                next_pi = th.nn.Softmax(dim=2)(target_q / self.temperature)
+                target_q = (next_pi * target_q).sum(-1)
+
+                ent = - th.sum(next_pi * th.log(next_pi), dim=2)
+                # Entropy & Action Uniqueness regularization
+                with th.no_grad():
+                    if self.method == 'none':
+                        g = 0.0
+                    elif self.method == 'action':
+                        g = ent
+                    elif self.method == 'action_asymmetric':
+                        # entropy of ensemble members over sprime
+                        next_ent = - th.sum(next_pi * th.log(next_pi), dim=2)
+                        # all members s.t index <= replay_data.member are not penalized
+                        one_hot_active_idx = th.nn.functional.one_hot(replay_data.member.squeeze() + 1,
+                                                                      self.ensemble_size + 1)
+                        child_mask = th.cumsum(one_hot_active_idx, dim=1)[:, :-1]
+                        masked_ent = (next_ent * child_mask)
+                        # accumulate entropy of all masters
+                        cum_master_ent = th.cumsum(masked_ent, dim=1)
+                        # average cumulative master entropy with mask size
+                        g = cum_master_ent
+                    elif self.method == 'state':
+                        pass
+                    else:
+                        raise ValueError
+
+                # Apply Entropy regularization
+                target_q += self.ent_coef * g
+
                 # 1-step TD target
                 target_q = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_q
 
+            logger.record("train/method", self.method, exclude="tensorboard")
+            logger.record("train/entropy", ent.mean().item(), exclude="tensorboard")
             # Get current Q estimates
-            current_q = self.q_net(replay_data.observations)
-            next_q = self.q_net(replay_data.next_observations)
-
-            # Entropy & Action Uniqueness regularization
-            next_pi = th.nn.Softmax(dim=1)(next_q / self.temperature)
-            logger.record("action model/method", self.method, exclude="tensorboard")
-            with th.no_grad():
-                if self.method == 'none':
-                    g = 0.0
-                elif self.method == 'action':
-                    g = - th.sum(next_pi * th.log(next_pi), dim=1, keepdim=True)
-                elif self.method == 'state':
-                    g = - th.log(next_pi + pi_a_prime + 1e-2)
-                else:
-                    raise ValueError
+            current_q = self.q_net(replay_data.observations).view(b, self.ensemble_size, -1)
 
             # Retrieve the q-values for the actions from the replay buffer
-            current_q = th.gather(current_q, dim=1, index=replay_data.actions.long())
+            current_q = \
+                th.gather(current_q, dim=2,
+                          index=replay_data.actions.long().repeat(1, self.ensemble_size).view(b, self.ensemble_size, 1))
 
-            # Apply Entropy regularization
-            target_q += self.ent_coef * g
+            # reshape to match target_q.shape
+            current_q = current_q.reshape(b, self.ensemble_size)
 
             target_q = target_q.detach()
             # Compute Huber loss (less sensitive to outliers)

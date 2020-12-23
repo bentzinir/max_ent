@@ -3,8 +3,7 @@ import envs
 import numpy as np
 import time
 from tqdm import tqdm
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
-from stable_baselines3.common.utils import set_random_seed
+from ensemble.dummy_ensemble_vec_env import DummyEnsembleVecEnv
 from discriminator_trainer import DiscriminatorTrainer
 import torch
 import GPUtil
@@ -15,7 +14,7 @@ def eval_policy(env, model, steps=1000, desc=''):
     traj_rewards = [0]
     for _ in tqdm(range(steps), desc=desc, leave=True):
         action, _state = model.predict(obs, deterministic=False)
-        next_obs, reward, done, info = env.step(action)
+        next_obs, reward, done, info = env.step([action])
         obs = next_obs
         env.render()
         time.sleep(0.03)
@@ -33,15 +32,15 @@ def train():
     else:
         device = torch.device('cpu')
 
-    lr = 2e-4
+    lr = 7e-4
     gamma = 0.9
     buffer_size = 50000
     batch_size = 64
-    learning_starts = 50000
-    total_timesteps = 250000
+    learning_starts = 30000
+    total_timesteps = 150000
     ent_coef = 0.01
-    temperature = 0.1
-    exploration_final_rate = .1
+    temperature = 0.01
+    exploration_final_rate = .0
     # Regularization types:
     # 1. none: g = 0
     # 2. action: g = -log_pi
@@ -49,41 +48,29 @@ def train():
     # 4. next_abs: g = |pa/p_i - 1|
     # 5. next_log: g = log(pa/pi)
     method = 'action'
+    ensemble_size = 4
     discrete = True
-    n_redundancies = 1
+    n_redundancies = 5
     max_repeats = 3
     room_size = 10
     up_wind = 0.0
     down_wind = 0.0
     right_wind = 0.0
     left_wind = 0.0
-    num_cpu = 2
 
-
-    def make_env(env_id, rank, seed=0):
-        def _init():
-            env = gym.make(env_id, rows=room_size, cols=room_size, discrete=discrete,
-                           goal=[1, 1], state=[room_size - 2, room_size - 2],
-                           fixed_reset=True, n_redundancies=n_redundancies, max_repeats=max_repeats,
-                           horz_wind=(right_wind, left_wind), vert_wind=(up_wind, down_wind),
-                           empty=False, seed=0,)
-            return env
-        set_random_seed(seed)
-        return _init
-
-    env = DummyVecEnv([lambda: gym.make('rooms-v0', rows=room_size, cols=room_size, discrete=discrete,
-                                        goal=[1, 1], state=[room_size - 2, room_size - 2],
-                                        fixed_reset=True, n_redundancies=n_redundancies, max_repeats=max_repeats,
-                                        horz_wind=(right_wind, left_wind), vert_wind=(up_wind, down_wind),
-                                        empty=False, seed=0,)])
+    env = DummyEnsembleVecEnv([lambda: gym.make('rooms-v0', rows=room_size, cols=room_size, discrete=discrete,
+                                                goal=[1, 1], state=[room_size - 2, room_size - 2],
+                                                fixed_reset=True, n_redundancies=n_redundancies, max_repeats=max_repeats,
+                                                horz_wind=(right_wind, left_wind), vert_wind=(up_wind, down_wind),
+                                                empty=False, seed=0, )], ensemble_size=ensemble_size)
 
     obs_shape = list(env.observation_space.shape)
 
     if discrete:
         from max_ent_dqn import MaxEntDQN as Algorithm
-        from stable_baselines3.dqn.policies import CnnPolicy as Model
+        from ensemble.dqn.policies import EnsembleCnnPolicy as Model
         ssprime_shape = (2 * obs_shape[2], *obs_shape[:2])
-        policy = 'CnnPolicy'
+        policy = 'EnsembleCnnPolicy'
         cat_dim = 1
     else:
         from max_ent_sac import MaxEntSAC as Algorithm
@@ -99,21 +86,26 @@ def train():
                                        shape=ssprime_shape,
                                        dtype=env.observation_space.dtype)
 
-    action_model = Model(observation_space=ssprime_obs_space,
-                         action_space=env.action_space,
-                         lr_schedule=lambda x: lr).to(device)
+    if method == 'state':
+        discrimination_model = Model(observation_space=ssprime_obs_space,
+                                     action_space=env.action_space,
+                                     lr_schedule=lambda x: lr).to(device)
+        discrimination_trainer = DiscriminatorTrainer(action_model=discrimination_model, cat_dim=cat_dim, discrete=discrete,
+                                              lr=lr)
+    else:
+        discrimination_trainer = None
 
-    action_trainer = DiscriminatorTrainer(action_model=action_model, cat_dim=cat_dim, discrete=discrete, lr=lr)
     model = Algorithm(policy, env, verbose=1, gamma=gamma, buffer_size=buffer_size, learning_starts=learning_starts,
-                      action_trainer=action_trainer, device=device,
+                      discrimination_trainer=discrimination_trainer, device=device,
                       ent_coef=ent_coef, method=method, temperature=temperature,
                       batch_size=batch_size, exploration_final_eps=exploration_final_rate,
-                      policy_kwargs={})
+                      policy_kwargs={}, ensemble_size=ensemble_size)
     model.learn(total_timesteps=total_timesteps, log_interval=100)
     model.save("rooms")
 
     eval_res = eval_policy(env, model, desc='Evaluating model')
     print(f'Eval Result = {eval_res}')
+
 
 if __name__ == '__main__':
     train()

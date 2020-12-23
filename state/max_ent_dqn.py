@@ -70,7 +70,7 @@ class MaxEntDQN(DQN):
             _init_setup_model,
         )
 
-        def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
+        def soft_predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
             q_values = self.forward(observation)
             # Greedy action
             if deterministic:
@@ -80,8 +80,8 @@ class MaxEntDQN(DQN):
                 action = Categorical(probs=pi).sample()
             return action
 
-        # replace self.q_net._predict with _predict for this object only
-        self.q_net._predict = types.MethodType(_predict, self.q_net)
+        # replace self.q_net._predict with soft_predict for this object only
+        self.q_net._predict = types.MethodType(soft_predict, self.q_net)
 
         self.action_trainer = action_trainer
         self.ent_coef = ent_coef
@@ -103,9 +103,7 @@ class MaxEntDQN(DQN):
             with th.no_grad():
                 # Compute the target Q values
                 target_q = self.q_net_target(replay_data.next_observations)
-                # Follow greedy policy: use the one with the highest value
-                # target_q, _ = target_q.max(dim=1)
-                # TODO: changing from Q-learning to SARSA-like training
+                # Follow softmax policy instead of eps-greedy
                 next_pi = th.nn.Softmax(dim=1)(target_q / self.temperature)
                 target_q = (next_pi * target_q).sum(-1)
                 # Avoid potential broadcast issue

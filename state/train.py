@@ -31,7 +31,7 @@ if torch.cuda.is_available():
 else:
     device = torch.device('cpu')
 
-lr = 2e-4
+lr = 7e-4
 gamma = 0.9
 buffer_size = 50000
 batch_size = 64
@@ -39,7 +39,7 @@ learning_starts = 50000
 total_timesteps = 150000
 ent_coef = 0.01
 temperature = 0.01
-exploration_final_rate = .1
+exploration_final_rate = .0
 # Regularization types:
 # 1. none: g = 0
 # 2. action: g = -log_pi
