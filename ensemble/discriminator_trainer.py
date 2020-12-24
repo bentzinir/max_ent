@@ -9,10 +9,9 @@ class DiscriminatorTrainer:
 
     :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
     """
-    def __init__(self, action_model, cat_dim, lr, discrete):
-        self.action_model = action_model
-        self.optimizer = torch.optim.Adam(self.action_model.parameters(), lr=lr)
-        self.cat_dim = cat_dim
+    def __init__(self, discrimination_model, lr, discrete):
+        self.discrimination_model = discrimination_model
+        self.optimizer = torch.optim.Adam(self.discrimination_model.parameters(), lr=lr)
         self.discrete = discrete
 
     def train_step(self, batch, **kwargs):
@@ -22,24 +21,22 @@ class DiscriminatorTrainer:
             self.train_step_continuous(batch)
 
     def train_step_discrete(self, batch, max_grad_norm):
-        x = torch.cat((batch.observations, batch.next_observations), dim=self.cat_dim).float()
         # we use the "q_net" output to get action probabilities
-        predicted = self.action_model.q_net(x)
-        action_probs = torch.softmax(predicted, dim=-1)
-        loss = torch.nn.CrossEntropyLoss()(action_probs, batch.actions.view(-1))
-        m = Categorical(action_probs)
+        predicted = self.discrimination_model.q_net(batch.observations)
+        member_probs = torch.softmax(predicted, dim=-1)
+        loss = torch.nn.CrossEntropyLoss()(member_probs, batch.members.view(-1))
+        m = Categorical(member_probs)
 
-        # Optimize the action model
+        # Optimize the discrimination model
         self.optimizer.zero_grad()
         loss.backward()
         # Clip gradient norm
-        torch.nn.utils.clip_grad_norm_(self.action_model.parameters(), max_grad_norm)
+        torch.nn.utils.clip_grad_norm_(self.discrimination_model.parameters(), max_grad_norm)
         self.optimizer.step()
-        acc = ((action_probs.argmax(dim=1) == batch.actions[:, 0])).float().mean().item()
-        logger.record("action model/loss", loss.item())
-        logger.record("action model/accuracy", acc)
-        logger.record("action model/entropy", torch.mean(m.entropy()).item())
-        logger.record("action model/hist", torch.histc(batch.actions.float(), bins=action_probs.shape[1]).tolist())
+        acc = ((member_probs.argmax(dim=1) == batch.members[:, 0])).float().mean().item()
+        logger.record("discrimination model/loss", loss.item())
+        logger.record("discrimination model/accuracy", acc)
+        logger.record("discrimination model/entropy", torch.mean(m.entropy()).item())
 
     def train_step_continuous(self, batch):
         # 1. build s,s'=f(s,a) distribution function

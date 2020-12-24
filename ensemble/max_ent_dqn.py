@@ -137,27 +137,30 @@ class MaxEntDQN(DQN):
                 next_pi = th.nn.Softmax(dim=2)(target_q / self.temperature)
                 target_q = (next_pi * target_q).sum(-1)
 
-                ent = - th.sum(next_pi * th.log(next_pi), dim=2)
-                # Entropy & Action Uniqueness regularization
+                ent = - (next_pi * th.log(next_pi)).sum(2)
+                # Ensemble Entropy Regularization
+                # all members s.t index <= replay_data.member are not penalized
+                one_hot_active_idx = th.nn.functional.one_hot(replay_data.members.squeeze() + 1,
+                                                              self.ensemble_size + 1)
+                child_mask = th.cumsum(one_hot_active_idx, dim=1)[:, :-1]
                 with th.no_grad():
                     if self.method == 'none':
                         g = 0.0
-                    elif self.method == 'action':
+                    elif self.method == 'entropy':
                         g = ent
-                    elif self.method == 'action_asymmetric':
-                        # entropy of ensemble members over sprime
-                        next_ent = - th.sum(next_pi * th.log(next_pi), dim=2)
-                        # all members s.t index <= replay_data.member are not penalized
-                        one_hot_active_idx = th.nn.functional.one_hot(replay_data.member.squeeze() + 1,
-                                                                      self.ensemble_size + 1)
-                        child_mask = th.cumsum(one_hot_active_idx, dim=1)[:, :-1]
-                        masked_ent = (next_ent * child_mask)
-                        # accumulate entropy of all masters
-                        cum_master_ent = th.cumsum(masked_ent, dim=1)
-                        # average cumulative master entropy with mask size
-                        g = cum_master_ent
+                    elif self.method == 'ensemble_entropy':
+                        owner_one_hot = F.one_hot(replay_data.members.squeeze(), self.ensemble_size).unsqueeze(2)
+                        owner_next_pi = (owner_one_hot * next_pi).sum(1).unsqueeze(1)
+                        ce = - (next_pi * th.log(owner_next_pi)).sum(2)
+                        descendants_ce = ce * child_mask
+                        g = ent + descendants_ce
+
                     elif self.method == 'state':
-                        pass
+                        next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
+                            replay_data.next_observations)
+                        masked = (next_member_logits * child_mask)
+                        # accumulate penalty from all masters
+                        g = th.cumsum(masked, dim=1)
                     else:
                         raise ValueError
 
@@ -168,7 +171,10 @@ class MaxEntDQN(DQN):
                 target_q = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_q
 
             logger.record("train/method", self.method, exclude="tensorboard")
-            logger.record("train/entropy", ent.mean().item(), exclude="tensorboard")
+            logger.record("train/entropy", [ent.min().item(), ent.mean().item(), ent.max().item()],
+                          exclude="tensorboard")
+            logger.record("train/cross_entropy", [descendants_ce.min().item(), descendants_ce.mean().item(), descendants_ce.max().item()],
+                          exclude="tensorboard")
             # Get current Q estimates
             current_q = self.q_net(replay_data.observations).view(b, self.ensemble_size, -1)
 

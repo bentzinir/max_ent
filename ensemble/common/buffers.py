@@ -70,4 +70,4 @@ class EnsembleReplayBufferSamples(NamedTuple):
     next_observations: th.Tensor
     dones: th.Tensor
     rewards: th.Tensor
-    member: th.Tensor
+    members: th.Tensor
