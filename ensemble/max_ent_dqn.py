@@ -154,7 +154,8 @@ class MaxEntDQN(DQN):
                         ce = - (next_pi * th.log(owner_next_pi)).sum(2)
                         descendants_ce = ce * child_mask
                         g = ent + descendants_ce
-
+                        logger.record("train/cross_entropy", [descendants_ce.min().item(), descendants_ce.mean().item(),
+                                                              descendants_ce.max().item()], exclude="tensorboard")
                     elif self.method == 'state':
                         next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
                             replay_data.next_observations)
@@ -172,8 +173,6 @@ class MaxEntDQN(DQN):
 
             logger.record("train/method", self.method, exclude="tensorboard")
             logger.record("train/entropy", [ent.min().item(), ent.mean().item(), ent.max().item()],
-                          exclude="tensorboard")
-            logger.record("train/cross_entropy", [descendants_ce.min().item(), descendants_ce.mean().item(), descendants_ce.max().item()],
                           exclude="tensorboard")
             # Get current Q estimates
             current_q = self.q_net(replay_data.observations).view(b, self.ensemble_size, -1)

@@ -5,7 +5,7 @@ import numpy as np
 import time
 from tqdm import tqdm
 from ensemble.dummy_ensemble_vec_env import DummyEnsembleVecEnv
-from discriminator_trainer import DiscriminatorTrainer
+from ensemble.discriminator_trainer import DiscriminatorTrainer
 from gym import spaces
 import torch
 import GPUtil
@@ -68,7 +68,7 @@ def train():
 
     obs_shape = list(env.observation_space.shape)
     if discrete:
-        from max_ent_dqn import MaxEntDQN as Algorithm
+        from ensemble.max_ent_dqn import MaxEntDQN as Algorithm
         from stable_baselines3.dqn.policies import CnnPolicy as DiscriminationModel
         disc_obs_shape = (obs_shape[2], *obs_shape[:2])
         policy = 'EnsembleCnnPolicy'
