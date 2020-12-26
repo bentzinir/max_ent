@@ -37,10 +37,10 @@ def train():
     lr = 7e-4
     gamma = 0.9
     buffer_size = 50000
-    batch_size = 64
+    batch_size = 128
     learning_starts = 30000
     total_timesteps = 150000
-    ent_coef = 0.01
+    ent_coef = .02
     temperature = 0.01
     exploration_final_rate = 0
     exploration_initial_rate = 0
@@ -49,11 +49,12 @@ def train():
     # 2. entropy: g = entropy
     # 3. ensemble_entropy: g = entropy + one sided kl
     # 4. state: g = - log discrimination
-    method = 'ensemble_entropy'
+    method = 'mutual_info'
     ensemble_size = 4
     discrete = True
-    n_redundancies = 5
-    max_repeats = 3
+    empty = False
+    n_redundancies = 1
+    max_repeats = 1
     room_size = 10
     up_wind = 0.0
     down_wind = 0.0
@@ -64,7 +65,7 @@ def train():
                                                 goal=[1, 1], state=[room_size - 2, room_size - 2],
                                                 fixed_reset=True, n_redundancies=n_redundancies, max_repeats=max_repeats,
                                                 horz_wind=(right_wind, left_wind), vert_wind=(up_wind, down_wind),
-                                                empty=False, seed=0, )], ensemble_size=ensemble_size)
+                                                empty=empty, seed=0, )], ensemble_size=ensemble_size)
 
     obs_shape = list(env.observation_space.shape)
     if discrete:

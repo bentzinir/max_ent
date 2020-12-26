@@ -130,9 +130,13 @@ class MaxEntDQN(DQN):
             if self.method == 'state':
                 self.discrimination_trainer.train_step(replay_data, max_grad_norm=self.max_grad_norm)
 
+            # Get current Q estimates
+            current_q = self.q_net(replay_data.observations).view(b, self.ensemble_size, -1)
+
             with th.no_grad():
                 # Compute the target Q values
                 target_q = self.q_net_target(replay_data.next_observations).view(b, self.ensemble_size, -1)
+
                 # Follow softmax policy
                 next_pi = th.nn.Softmax(dim=2)(target_q / self.temperature)
                 target_q = (next_pi * target_q).sum(-1)
@@ -156,6 +160,18 @@ class MaxEntDQN(DQN):
                         g = ent + descendants_ce
                         logger.record("train/cross_entropy", [descendants_ce.min().item(), descendants_ce.mean().item(),
                                                               descendants_ce.max().item()], exclude="tensorboard")
+                    elif self.method == 'mutual_info':
+                        pi = th.nn.Softmax(dim=2)(current_q / self.temperature)
+                        pi_cumsum = pi.cumsum(1)
+                        ens_pi = pi_cumsum / pi_cumsum.sum(2, keepdims=True)
+                        ens_pi_a = th.gather(ens_pi, dim=2, index=replay_data.actions.long().repeat(1, self.ensemble_size).view(b, self.ensemble_size, 1))
+                        g = - th.log(ens_pi_a).squeeze()
+                    elif self.method == 'next_mutual_info':
+                        next_pi_cumsum = next_pi.cumsum(1)
+                        ens_next_pi = next_pi_cumsum / next_pi_cumsum.sum(2, keepdims=True)
+                        # KLDivloss: input = logits. target = probs.
+                        # g = th.nn.KLDivLoss(reduction='none')(input=(ens_next_pi+1e-2).log(), target=next_pi).sum(2)
+                        g = th.nn.KLDivLoss(reduction='none')(input=(next_pi+1e-2).log(), target=ens_next_pi).sum(2)
                     elif self.method == 'state':
                         next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
                             replay_data.next_observations)
@@ -174,9 +190,7 @@ class MaxEntDQN(DQN):
             logger.record("train/method", self.method, exclude="tensorboard")
             logger.record("train/entropy", [ent.min().item(), ent.mean().item(), ent.max().item()],
                           exclude="tensorboard")
-            # Get current Q estimates
-            current_q = self.q_net(replay_data.observations).view(b, self.ensemble_size, -1)
-
+            logger.record("train/g", [g.min().item(), g.mean().item(), g.max().item()], exclude="tensorboard")
             # Retrieve the q-values for the actions from the replay buffer
             current_q = \
                 th.gather(current_q, dim=2,

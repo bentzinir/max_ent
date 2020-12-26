@@ -16,7 +16,7 @@ class DummyEnsembleVecEnv(DummyVecEnv):
         super(DummyEnsembleVecEnv, self).__init__(env_fns)
         self.ensemble_size = ensemble_size
         self.member = random.choice(range(ensemble_size))
-        self.reward_queues = [deque(maxlen=10) for _ in range(self.ensemble_size)]
+        self.reward_queues = [deque(maxlen=50) for _ in range(self.ensemble_size)]
         self.cumulative_reward = 0
 
     def step_async(self, actions: np.ndarray) -> None:
