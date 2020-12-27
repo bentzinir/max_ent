@@ -183,10 +183,6 @@ class MaxEntDQN(DQN):
                 # 1-step TD target
                 target_q = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_q
 
-            logger.record("train/method", self.method, exclude="tensorboard")
-            logger.record("train/entropy", ent.mean(0).cpu().numpy().tolist(), exclude="tensorboard")
-            logger.record("train/g", [g.min().item(), g.mean().item(), g.max().item()], exclude="tensorboard")
-            logger.record("train/q", [current_q.min().item(), current_q.mean().item(), current_q.max().item()], exclude="tensorboard")
             # Retrieve the q-values for the actions from the replay buffer
             current_q = \
                 th.gather(current_q, dim=2,
@@ -206,6 +202,12 @@ class MaxEntDQN(DQN):
             # Clip gradient norm
             th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
             self.policy.optimizer.step()
+
+            # Logging
+            logger.record("train/method", self.method, exclude="tensorboard")
+            logger.record("train/entropy", ent.mean(0).cpu().numpy().tolist(), exclude="tensorboard")
+            logger.record("train/g", g.mean(0).cpu().numpy().tolist(), exclude="tensorboard")
+            logger.record("train/Q", current_q.mean(0).cpu().detach().numpy().tolist(), exclude="tensorboard")
 
         # Increase update counter
         self._n_updates += gradient_steps
