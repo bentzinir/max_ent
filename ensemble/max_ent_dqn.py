@@ -13,6 +13,7 @@ from stable_baselines3.common.distributions import Categorical
 from ensemble.common.buffers import EnsembleReplayBuffer
 from ensemble.common.collect_rollout import collect_rollouts
 from ensemble.common.sample_action import sample_action
+from ensemble.common.entropy import HLoss
 
 
 class MaxEntDQN(DQN):
@@ -78,17 +79,14 @@ class MaxEntDQN(DQN):
 
         def soft_predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
             q_values = self.forward(observation)
-            b, c = q_values.shape
-            q_values = q_values.view(b, self.ensemble_size, -1)
+            b, e, c = q_values.shape
+            # q_values = q_values.view(b, self.ensemble_size, -1)
             # Greedy action
             if deterministic:
-                action = q_values.argmax(dim=1).reshape(-1)
+                return q_values.argmax(dim=1).reshape(-1)
             else:
-                action = []
-                for e in range(self.ensemble_size):
-                    pi = th.nn.Softmax(dim=1)(q_values[:, e, :] / temperature)
-                    action.append(Categorical(probs=pi).sample())
-            return th.cat(action)
+                z = th.nn.Softmax(dim=2)(q_values / temperature)
+                return Categorical(probs=z).sample().squeeze()
 
         # replace self.q_net._predict with soft_predict for this object only
         self.q_net._predict = types.MethodType(soft_predict, self.q_net)
@@ -138,48 +136,46 @@ class MaxEntDQN(DQN):
                 target_q = self.q_net_target(replay_data.next_observations).view(b, self.ensemble_size, -1)
 
                 # Follow softmax policy
+                next_pi_logits = target_q / self.temperature
                 next_pi = th.nn.Softmax(dim=2)(target_q / self.temperature)
                 target_q = (next_pi * target_q).sum(-1)
 
-                ent = - (next_pi * th.log(next_pi)).sum(2)
                 # Ensemble Entropy Regularization
-                # all members s.t index <= replay_data.member are not penalized
-                one_hot_active_idx = th.nn.functional.one_hot(replay_data.members.squeeze() + 1,
-                                                              self.ensemble_size + 1)
+                ent = HLoss()(next_pi_logits, dim=2)
+                one_hot_active_idx = th.nn.functional.one_hot(replay_data.members.squeeze() + 1, self.ensemble_size + 1)
                 child_mask = th.cumsum(one_hot_active_idx, dim=1)[:, :-1]
-                with th.no_grad():
-                    if self.method == 'none':
-                        g = 0.0
-                    elif self.method == 'entropy':
-                        g = ent
-                    elif self.method == 'ensemble_entropy':
-                        owner_one_hot = F.one_hot(replay_data.members.squeeze(), self.ensemble_size).unsqueeze(2)
-                        owner_next_pi = (owner_one_hot * next_pi).sum(1).unsqueeze(1)
-                        ce = - (next_pi * th.log(owner_next_pi)).sum(2)
-                        descendants_ce = ce * child_mask
-                        g = ent + descendants_ce
-                        logger.record("train/cross_entropy", [descendants_ce.min().item(), descendants_ce.mean().item(),
-                                                              descendants_ce.max().item()], exclude="tensorboard")
-                    elif self.method == 'mutual_info':
-                        pi = th.nn.Softmax(dim=2)(current_q / self.temperature)
-                        pi_cumsum = pi.cumsum(1)
-                        ens_pi = pi_cumsum / pi_cumsum.sum(2, keepdims=True)
-                        ens_pi_a = th.gather(ens_pi, dim=2, index=replay_data.actions.long().repeat(1, self.ensemble_size).view(b, self.ensemble_size, 1))
-                        g = - th.log(ens_pi_a).squeeze()
-                    elif self.method == 'next_mutual_info':
-                        next_pi_cumsum = next_pi.cumsum(1)
-                        ens_next_pi = next_pi_cumsum / next_pi_cumsum.sum(2, keepdims=True)
-                        # KLDivloss: input = logits. target = probs.
-                        # g = th.nn.KLDivLoss(reduction='none')(input=(ens_next_pi+1e-2).log(), target=next_pi).sum(2)
-                        g = th.nn.KLDivLoss(reduction='none')(input=(next_pi+1e-2).log(), target=ens_next_pi).sum(2)
-                    elif self.method == 'state':
-                        next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
-                            replay_data.next_observations)
-                        masked = (next_member_logits * child_mask)
-                        # accumulate penalty from all masters
-                        g = th.cumsum(masked, dim=1)
-                    else:
-                        raise ValueError
+                if self.method == 'none':
+                    g = 0.0
+                elif self.method == 'entropy':
+                    g = ent
+                elif self.method == 'ensemble_entropy':
+                    owner_one_hot = F.one_hot(replay_data.members.squeeze(), self.ensemble_size).unsqueeze(2)
+                    owner_next_pi = (owner_one_hot * next_pi).sum(1).unsqueeze(1)
+                    ce = - (next_pi * th.log(owner_next_pi)).sum(2)
+                    descendants_ce = ce * child_mask
+                    g = ent + descendants_ce
+                    logger.record("train/cross_entropy", [descendants_ce.min().item(), descendants_ce.mean().item(),
+                                                          descendants_ce.max().item()], exclude="tensorboard")
+                elif self.method == 'mutual_info':
+                    pi = th.nn.Softmax(dim=2)(current_q / self.temperature)
+                    pi_cumsum = pi.cumsum(1)
+                    ens_pi = pi_cumsum / pi_cumsum.sum(2, keepdims=True)
+                    ens_pi_a = th.gather(ens_pi, dim=2, index=replay_data.actions.long().repeat(1, self.ensemble_size).view(b, self.ensemble_size, 1))
+                    g = - th.log(ens_pi_a).squeeze()
+                elif self.method == 'next_mutual_info':
+                    next_pi_cumsum = next_pi.cumsum(1)
+                    ens_next_pi = next_pi_cumsum / next_pi_cumsum.sum(2, keepdims=True)
+                    # KLDivloss: input = logits. target = probs.
+                    # g = th.nn.KLDivLoss(reduction='none')(input=(ens_next_pi+1e-2).log(), target=next_pi).sum(2)
+                    g = th.nn.KLDivLoss(reduction='none')(input=(next_pi+1e-4).log(), target=ens_next_pi).sum(2)
+                elif self.method == 'state':
+                    next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
+                        replay_data.next_observations)
+                    masked = (next_member_logits * child_mask)
+                    # accumulate penalty from all masters
+                    g = th.cumsum(masked, dim=1)
+                else:
+                    raise ValueError
 
                 # Apply Entropy regularization
                 target_q += self.ent_coef * g
@@ -188,9 +184,9 @@ class MaxEntDQN(DQN):
                 target_q = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_q
 
             logger.record("train/method", self.method, exclude="tensorboard")
-            logger.record("train/entropy", [ent.min().item(), ent.mean().item(), ent.max().item()],
-                          exclude="tensorboard")
+            logger.record("train/entropy", ent.mean(0).cpu().numpy().tolist(), exclude="tensorboard")
             logger.record("train/g", [g.min().item(), g.mean().item(), g.max().item()], exclude="tensorboard")
+            logger.record("train/q", [current_q.min().item(), current_q.mean().item(), current_q.max().item()], exclude="tensorboard")
             # Retrieve the q-values for the actions from the replay buffer
             current_q = \
                 th.gather(current_q, dim=2,

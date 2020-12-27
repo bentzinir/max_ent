@@ -44,12 +44,15 @@ def train():
     temperature = 0.01
     exploration_final_rate = 0
     exploration_initial_rate = 0
+    log_interval = 10
     # Regularization types:
     # 1. none: g = 0
     # 2. entropy: g = entropy
     # 3. ensemble_entropy: g = entropy + one sided kl
     # 4. state: g = - log discrimination
-    method = 'mutual_info'
+    # method = 'next_mutual_info'
+    method = 'entropy'
+    # method = 'mutual_info'
     ensemble_size = 4
     discrete = True
     empty = False
@@ -101,7 +104,9 @@ def train():
                       batch_size=batch_size, exploration_final_eps=exploration_final_rate,
                       exploration_initial_eps=exploration_initial_rate,
                       policy_kwargs={}, ensemble_size=ensemble_size)
-    model.learn(total_timesteps=total_timesteps, log_interval=100)
+    [q.to(device) for q in model.q_net.q_net]
+    [q.to(device) for q in model.q_net_target.q_net]
+    model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
     model.save("rooms")
 
     eval_res = eval_policy(env, model, desc='Evaluating model')
