@@ -7,6 +7,6 @@ class HLoss(nn.Module):
         super(HLoss, self).__init__()
 
     def forward(self, x, dim):
-        b = F.softmax(x, dim=dim) * F.log_softmax(x, dim=1)
+        b = F.softmax(x, dim=dim) * F.log_softmax(x, dim=dim)
         b = -1.0 * b.sum(dim)
         return b

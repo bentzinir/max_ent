@@ -40,7 +40,7 @@ def train():
     batch_size = 128
     learning_starts = 30000
     total_timesteps = 150000
-    ent_coef = .02
+    ent_coef = .1
     temperature = 0.01
     exploration_final_rate = 0
     exploration_initial_rate = 0
@@ -53,7 +53,7 @@ def train():
     # method = 'next_mutual_info'
     method = 'entropy'
     # method = 'mutual_info'
-    ensemble_size = 4
+    ensemble_size = 3
     discrete = True
     empty = False
     n_redundancies = 1
