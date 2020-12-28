@@ -175,6 +175,8 @@ class MaxEntDQN(DQN):
                     next_member_logprob = th.nn.LogSoftmax(dim=1)(next_member_logits)
                     # accumulate penalty from all masters
                     g = next_member_logprob - next_member_logprob.cumsum(1)
+                    w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
+                    g = g * w
                 else:
                     raise ValueError
 

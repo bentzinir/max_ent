@@ -35,7 +35,7 @@ class DiscriminatorTrainer:
         acc = (logits.argmax(dim=1) == batch.members.view(-1)).float().mean()
         logger.record("discrimination model/loss", loss.item())
         logger.record("discrimination model/accuracy", acc.item())
-        logger.record("discrimination model/entropy", torch.mean(m.entropy()).item())
+        logger.record("discrimination model/ent", torch.mean(m.entropy()).item())
 
     def train_step_continuous(self, batch):
         # 1. build s,s'=f(s,a) distribution function
