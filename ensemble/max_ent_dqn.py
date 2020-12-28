@@ -172,9 +172,9 @@ class MaxEntDQN(DQN):
                 elif self.method == 'state':
                     next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
                         replay_data.next_observations)
-                    masked = (next_member_logits * child_mask)
+                    next_member_logprob = th.nn.LogSoftmax(dim=1)(next_member_logits)
                     # accumulate penalty from all masters
-                    g = th.cumsum(masked, dim=1)
+                    g = next_member_logprob - next_member_logprob.cumsum(1)
                 else:
                     raise ValueError
 

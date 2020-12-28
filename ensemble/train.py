@@ -59,8 +59,9 @@ def train():
     # 4. state: g = - log discrimination
     # method = 'next_mutual_info'; ent_coef = 0.1
     # method = 'entropy'; ent_coef = 0.05
-    method = 'mutual_info'; ent_coef = 0.05
+    # method = 'mutual_info'; ent_coef = 0.05
     # method = 'none'; ent_coef = 0
+    method = 'state'; ent_coef = 0.05
     ensemble_size = 3
     discrete = True
     empty = False

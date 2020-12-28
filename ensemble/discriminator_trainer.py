@@ -22,10 +22,9 @@ class DiscriminatorTrainer:
 
     def train_step_discrete(self, batch, max_grad_norm):
         # we use the "q_net" output to get action probabilities
-        predicted = self.discrimination_model.q_net(batch.observations)
-        member_probs = torch.softmax(predicted, dim=-1)
-        loss = torch.nn.CrossEntropyLoss()(member_probs, batch.members.view(-1))
-        m = Categorical(member_probs)
+        logits = self.discrimination_model.q_net(batch.observations)
+        loss = torch.nn.CrossEntropyLoss()(logits, batch.members.view(-1))
+        m = Categorical(logits=logits)
 
         # Optimize the discrimination model
         self.optimizer.zero_grad()
@@ -33,9 +32,9 @@ class DiscriminatorTrainer:
         # Clip gradient norm
         torch.nn.utils.clip_grad_norm_(self.discrimination_model.parameters(), max_grad_norm)
         self.optimizer.step()
-        acc = ((member_probs.argmax(dim=1) == batch.members[:, 0])).float().mean().item()
+        acc = (logits.argmax(dim=1) == batch.members.view(-1)).float().mean()
         logger.record("discrimination model/loss", loss.item())
-        logger.record("discrimination model/accuracy", acc)
+        logger.record("discrimination model/accuracy", acc.item())
         logger.record("discrimination model/entropy", torch.mean(m.entropy()).item())
 
     def train_step_continuous(self, batch):
