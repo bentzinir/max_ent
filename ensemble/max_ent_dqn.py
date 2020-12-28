@@ -14,6 +14,7 @@ from ensemble.common.buffers import EnsembleReplayBuffer
 from ensemble.common.collect_rollout import collect_rollouts
 from ensemble.common.sample_action import sample_action
 from ensemble.common.entropy import HLoss
+from ensemble.common.format_string import format_string
 
 
 class MaxEntDQN(DQN):
@@ -79,14 +80,12 @@ class MaxEntDQN(DQN):
 
         def soft_predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
             q_values = self.forward(observation)
-            b, e, c = q_values.shape
-            # q_values = q_values.view(b, self.ensemble_size, -1)
             # Greedy action
             if deterministic:
                 return q_values.argmax(dim=1).reshape(-1)
             else:
-                z = th.nn.Softmax(dim=2)(q_values / temperature)
-                return Categorical(probs=z).sample().squeeze()
+                z = q_values / temperature
+                return Categorical(logits=z).sample().squeeze(0)
 
         # replace self.q_net._predict with soft_predict for this object only
         self.q_net._predict = types.MethodType(soft_predict, self.q_net)
@@ -137,7 +136,7 @@ class MaxEntDQN(DQN):
 
                 # Follow softmax policy
                 next_pi_logits = target_q / self.temperature
-                next_pi = th.nn.Softmax(dim=2)(target_q / self.temperature)
+                next_pi = th.nn.Softmax(dim=2)(next_pi_logits)
                 target_q = (next_pi * target_q).sum(-1)
 
                 # Ensemble Entropy Regularization
@@ -145,7 +144,7 @@ class MaxEntDQN(DQN):
                 one_hot_active_idx = th.nn.functional.one_hot(replay_data.members.squeeze() + 1, self.ensemble_size + 1)
                 child_mask = th.cumsum(one_hot_active_idx, dim=1)[:, :-1]
                 if self.method == 'none':
-                    g = 0.0
+                    g = th.tensor(0.0)
                 elif self.method == 'entropy':
                     g = ent
                 elif self.method == 'ensemble_entropy':
@@ -158,16 +157,18 @@ class MaxEntDQN(DQN):
                                                           descendants_ce.max().item()], exclude="tensorboard")
                 elif self.method == 'mutual_info':
                     pi = th.nn.Softmax(dim=2)(current_q / self.temperature)
-                    pi_cumsum = pi.cumsum(1)
-                    ens_pi = pi_cumsum / pi_cumsum.sum(2, keepdims=True)
-                    ens_pi_a = th.gather(ens_pi, dim=2, index=replay_data.actions.long().repeat(1, self.ensemble_size).view(b, self.ensemble_size, 1))
-                    g = - th.log(ens_pi_a).squeeze()
+                    z = -th.log(pi + 1e-10)
+                    a = z.cumsum(1) - z + 1e-8
+                    idxs = replay_data.actions.long().repeat(1, self.ensemble_size).view(b, self.ensemble_size, 1)
+                    g = th.gather(a, dim=2, index=idxs).squeeze(2)
+                    w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
+                    g = g * w
                 elif self.method == 'next_mutual_info':
                     next_pi_cumsum = next_pi.cumsum(1)
                     ens_next_pi = next_pi_cumsum / next_pi_cumsum.sum(2, keepdims=True)
                     # KLDivloss: input = logits. target = probs.
                     # g = th.nn.KLDivLoss(reduction='none')(input=(ens_next_pi+1e-2).log(), target=next_pi).sum(2)
-                    g = th.nn.KLDivLoss(reduction='none')(input=(next_pi+1e-4).log(), target=ens_next_pi).sum(2)
+                    g = th.nn.KLDivLoss(reduction='none')(input=(next_pi+1e-8).log(), target=ens_next_pi).sum(2)
                 elif self.method == 'state':
                     next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
                         replay_data.next_observations)
@@ -193,7 +194,10 @@ class MaxEntDQN(DQN):
 
             target_q = target_q.detach()
             # Compute Huber loss (less sensitive to outliers)
-            loss = F.smooth_l1_loss(current_q, target_q)
+            loss = F.smooth_l1_loss(current_q, target_q, reduction='none')
+            loss_vec = loss.mean(0)
+            loss = loss_vec.mean()
+
             losses.append(loss.item())
 
             # Optimize the policy
@@ -205,9 +209,10 @@ class MaxEntDQN(DQN):
 
             # Logging
             logger.record("train/method", self.method, exclude="tensorboard")
-            logger.record("train/entropy", ent.mean(0).cpu().numpy().tolist(), exclude="tensorboard")
-            logger.record("train/g", g.mean(0).cpu().numpy().tolist(), exclude="tensorboard")
-            logger.record("train/Q", current_q.mean(0).cpu().detach().numpy().tolist(), exclude="tensorboard")
+            logger.record("train/entropy", format_string(ent.mean(0).cpu().numpy().tolist()), exclude="tensorboard")
+            logger.record("train/g", format_string(g.mean(0).cpu().numpy().tolist()), exclude="tensorboard")
+            logger.record("train/Q", format_string(current_q.mean(0).cpu().detach().numpy().tolist()), exclude="tensorboard")
+            logger.record("train/loss_vec", format_string(loss_vec.cpu().detach().numpy().tolist()), exclude="tensorboard")
 
         # Increase update counter
         self._n_updates += gradient_steps

@@ -11,11 +11,15 @@ import torch
 import GPUtil
 
 
-def eval_policy(env, model, steps=1000, desc=''):
+def eval_policy(env, model, steps=1000):
     obs = env.reset()
     traj_rewards = [0]
-    for _ in tqdm(range(steps), desc=desc, leave=True):
-        action, _state = model.predict(obs, deterministic=False)
+    for _ in range(steps):
+        if np.random.rand() < model.exploration_rate:
+            action = [model.action_space.sample() for _ in range(model.ensemble_size)]
+        else:
+            action, _state = model.policy.predict(obs, deterministic=False)
+            action = action
         next_obs, reward, done, info = env.step([action])
         obs = next_obs
         env.render()
@@ -23,6 +27,9 @@ def eval_policy(env, model, steps=1000, desc=''):
         traj_rewards[-1] += reward
         if done:
             obs = env.reset()
+            m = input('Enter member idx: ')
+            env.member = int(m)
+            print(f"env member: {env.member}")
             traj_rewards.append(0)
     return np.mean(traj_rewards)
 
@@ -38,21 +45,22 @@ def train():
     gamma = 0.9
     buffer_size = 50000
     batch_size = 128
-    learning_starts = 30000
+    learning_starts = 10000
     total_timesteps = 150000
-    ent_coef = .1
-    temperature = 0.01
-    exploration_final_rate = 0
-    exploration_initial_rate = 0
-    log_interval = 10
+    temperature = 0.02
+    exploration_final_rate = 0.05
+    exploration_initial_rate = 0.05
+    target_update_interval = 100
+    log_interval = 50
     # Regularization types:
     # 1. none: g = 0
     # 2. entropy: g = entropy
     # 3. ensemble_entropy: g = entropy + one sided kl
     # 4. state: g = - log discrimination
-    # method = 'next_mutual_info'
-    method = 'entropy'
-    # method = 'mutual_info'
+    # method = 'next_mutual_info'; ent_coef = 0.1
+    # method = 'entropy'; ent_coef = 0.05
+    method = 'mutual_info'; ent_coef = 0.05
+    # method = 'none'; ent_coef = 0
     ensemble_size = 3
     discrete = True
     empty = False
@@ -102,14 +110,13 @@ def train():
                       discrimination_trainer=discrimination_trainer, device=device,
                       ent_coef=ent_coef, method=method, temperature=temperature,
                       batch_size=batch_size, exploration_final_eps=exploration_final_rate,
-                      exploration_initial_eps=exploration_initial_rate,
-                      policy_kwargs={}, ensemble_size=ensemble_size)
-    [q.to(device) for q in model.q_net.q_net]
-    [q.to(device) for q in model.q_net_target.q_net]
+                      exploration_initial_eps=exploration_initial_rate, learning_rate=lr,
+                      policy_kwargs={}, ensemble_size=ensemble_size, target_update_interval=target_update_interval)
+
     model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
     model.save("rooms")
 
-    eval_res = eval_policy(env, model, desc='Evaluating model')
+    eval_res = eval_policy(env, model)
     print(f'Eval Result = {eval_res}')
 
 

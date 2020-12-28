@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Optional
 
 import numpy as np
 
@@ -8,6 +8,7 @@ from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, RolloutReturn
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common import logger
+from ensemble.common.format_string import format_string
 
 
 def collect_rollouts(
@@ -106,7 +107,7 @@ def collect_rollouts(
                 self._dump_logs()
 
             logger.record("train/rewards",
-                          [np.nanmean(env.reward_queues[idx]) for idx in range(self.ensemble_size)],
+                          format_string([np.nanmean(env.reward_queues[idx]) for idx in range(self.ensemble_size)]),
                           exclude="tensorboard")
 
     mean_reward = np.mean(episode_rewards) if total_episodes > 0 else 0.0

@@ -27,6 +27,7 @@ class DummyEnsembleVecEnv(DummyVecEnv):
             obs, self.buf_rews[env_idx], self.buf_dones[env_idx], self.buf_infos[env_idx] = self.envs[env_idx].step(
                 self.actions[env_idx][self.member]
             )
+            self.cumulative_reward += self.buf_rews[env_idx]
             if self.buf_dones[env_idx]:
                 # save final observation where user can get it, then reset
                 self.buf_infos[env_idx]["terminal_observation"] = obs
@@ -35,7 +36,6 @@ class DummyEnsembleVecEnv(DummyVecEnv):
                 self.cumulative_reward = 0
                 self.member = random.choice(range(self.ensemble_size))
             self._save_obs(env_idx, obs)
-            self.cumulative_reward += self.buf_rews[env_idx]
         return (self._obs_from_buf(), np.copy(self.buf_rews), np.copy(self.buf_dones), deepcopy(self.buf_infos))
 
     def reset(self) -> VecEnvObs:

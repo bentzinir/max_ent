@@ -17,7 +17,7 @@ class EnsembleQNetwork(QNetwork):
         action_space: gym.spaces.Space,
         features_extractor: nn.Module,
         features_dim: int,
-        net_arch: Optional[List[int]] = [64, 64],
+        net_arch: Optional[List[int]] = None,
         activation_fn: Type[nn.Module] = nn.ReLU,
         normalize_images: bool = True,
         ensemble_size: int = 1,
@@ -33,14 +33,12 @@ class EnsembleQNetwork(QNetwork):
         )
 
         self.ensemble_size = ensemble_size
-        del self.q_net
         action_dim = self.action_space.n  # number of actions
-        # q_net = create_mlp(self.features_dim, action_dim * ensemble_size, self.net_arch, self.activation_fn)
-        # self.q_net = nn.Sequential(*q_net)
-        self.q_net = []
+        self.qvec = []
         for e in range(ensemble_size):
             z = create_mlp(self.features_dim, action_dim, self.net_arch, self.activation_fn)
-            self.q_net.append(nn.Sequential(*z))
+            self.qvec.append(nn.Sequential(*z))
+        self.q_net = th.nn.Sequential(*self.qvec)
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
         """
@@ -59,7 +57,7 @@ class EnsembleDQNPolicy(DQNPolicy):
         observation_space: gym.spaces.Space,
         action_space: gym.spaces.Space,
         lr_schedule: Callable,
-        net_arch: Optional[List[int]] = [64, 64],
+        net_arch: Optional[List[int]] = None,
         activation_fn: Type[nn.Module] = nn.ReLU,
         features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
