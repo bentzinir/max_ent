@@ -26,19 +26,11 @@ def sample_action(
     if self.num_timesteps < learning_starts and not (self.use_sde and self.use_sde_at_warmup):
         # Warmup phase
         unscaled_action = [[self.action_space.sample() for k in range(self.ensemble_size)]]
-
     else:
         # Note: when using continuous actions,
         # we assume that the policy uses tanh to scale the action
         # We use non-deterministic action in the case of SAC, for TD3, it does not matter
-        # unscaled_action, _ = self.predict(self._last_obs, deterministic=False)
-
-        if np.random.rand() < self.exploration_rate:
-            n_batch = self._last_obs.shape[0]
-            unscaled_action = [[self.action_space.sample() for k in range(self.ensemble_size)]]
-        else:
-            unscaled_action, state = self.policy.predict(self._last_obs)
-            unscaled_action = [unscaled_action]
+        unscaled_action, _ = self.predict(self._last_obs, deterministic=False)
 
     # Rescale the action from [low, high] to [-1, 1]
     if isinstance(self.action_space, gym.spaces.Box):

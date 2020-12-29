@@ -18,7 +18,9 @@ class DummyEnsembleVecEnv(DummyVecEnv):
         self.ensemble_size = ensemble_size
         self.member = random.choice(range(ensemble_size))
         self.reward_queues = [deque(maxlen=50) for _ in range(self.ensemble_size)]
+        self.eplen_queues = [deque(maxlen=50) for _ in range(self.ensemble_size)]
         self.cumulative_reward = 0
+        self.episode_len = 0
         self.prioritized_ensemble = prioritized_ensemble
         self.member_hist = deque(maxlen=100)
 
@@ -31,12 +33,15 @@ class DummyEnsembleVecEnv(DummyVecEnv):
                 self.actions[env_idx][self.member]
             )
             self.cumulative_reward += self.buf_rews[env_idx]
+            self.episode_len += 1
             if self.buf_dones[env_idx]:
                 # save final observation where user can get it, then reset
                 self.buf_infos[env_idx]["terminal_observation"] = obs
                 obs = self.envs[env_idx].reset()
                 self.reward_queues[self.member].append(self.cumulative_reward)
+                self.eplen_queues[self.member].append(self.episode_len)
                 self.cumulative_reward = 0
+                self.episode_len = 0
                 self.member = self.draw_member()
             self._save_obs(env_idx, obs)
         return (self._obs_from_buf(), np.copy(self.buf_rews), np.copy(self.buf_dones), deepcopy(self.buf_infos))

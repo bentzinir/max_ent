@@ -144,17 +144,9 @@ class MaxEntDQN(DQN):
                 one_hot_active_idx = th.nn.functional.one_hot(replay_data.members.squeeze() + 1, self.ensemble_size + 1)
                 child_mask = th.cumsum(one_hot_active_idx, dim=1)[:, :-1]
                 if self.method == 'none':
-                    g = th.tensor(0.0)
+                    g = th.zeros_like(target_q)
                 elif self.method == 'entropy':
                     g = ent
-                elif self.method == 'ensemble_entropy':
-                    owner_one_hot = F.one_hot(replay_data.members.squeeze(), self.ensemble_size).unsqueeze(2)
-                    owner_next_pi = (owner_one_hot * next_pi).sum(1).unsqueeze(1)
-                    ce = - (next_pi * th.log(owner_next_pi)).sum(2)
-                    descendants_ce = ce * child_mask
-                    g = ent + descendants_ce
-                    logger.record("train/cross_entropy", [descendants_ce.min().item(), descendants_ce.mean().item(),
-                                                          descendants_ce.max().item()], exclude="tensorboard")
                 elif self.method == 'action':
                     pi = th.nn.Softmax(dim=2)(current_q / self.temperature)
                     z = -th.log(pi + 1e-10)
@@ -223,3 +215,19 @@ class MaxEntDQN(DQN):
 
         logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         logger.record("train/loss", np.mean(losses))
+
+    def predict(
+        self,
+        observation: np.ndarray,
+        state: Optional[np.ndarray] = None,
+        mask: Optional[np.ndarray] = None,
+        deterministic: bool = False,
+    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+
+        if not deterministic and np.random.rand() < self.exploration_rate:
+            n_batch = self._last_obs.shape[0]
+            action = [[self.action_space.sample() for k in range(self.ensemble_size)]]
+        else:
+            action, state = self.policy.predict(self._last_obs)
+            action = [action]
+        return action, state

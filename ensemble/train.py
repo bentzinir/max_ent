@@ -1,9 +1,9 @@
 import gym
 import envs
 import ensemble.dqn.policies
+import ensemble.sac.policies
 import numpy as np
 import time
-from tqdm import tqdm
 from ensemble.dummy_ensemble_vec_env import DummyEnsembleVecEnv
 from ensemble.discriminator_trainer import DiscriminatorTrainer
 from gym import spaces
@@ -11,16 +11,12 @@ import torch
 import GPUtil
 
 
-def eval_policy(env, model, steps=1000):
+def eval_policy(env, model):
     obs = env.reset()
     traj_rewards = [0]
     while True:
-        if np.random.rand() < model.exploration_rate:
-            action = [model.action_space.sample() for _ in range(model.ensemble_size)]
-        else:
-            action, _state = model.policy.predict(obs, deterministic=False)
-            action = action
-        next_obs, reward, done, info = env.step([action])
+        action, _ = model.predict(obs, deterministic=False)
+        next_obs, reward, done, info = env.step(action)
         obs = next_obs
         env.render()
         time.sleep(0.03)
@@ -58,7 +54,7 @@ def train():
     # 4. state: g = - log discrimination
     # method = 'none'; ent_coef = 0
     # method = 'entropy'; ent_coef = 0.05
-    # method = 'next_action'; ent_coef = 0.1
+    method = 'next_action'; ent_coef = 0.05
     # method = 'action'; ent_coef = 0.05
     # method = 'state'; ent_coef = 0.025
     ensemble_size = 4
@@ -86,19 +82,26 @@ def train():
         from stable_baselines3.dqn.policies import CnnPolicy as DiscriminationModel
         disc_obs_shape = (obs_shape[2], *obs_shape[:2])
         policy = 'EnsembleCnnPolicy'
+        alg_dict = {
+          'ent_coef': ent_coef,
+          'temperature': temperature,
+          'exploration_final_eps': exploration_final_rate,
+          'exploration_initial_eps': exploration_initial_rate,
+        }
 
     else:
-        from max_ent_sac import MaxEntSAC as Algorithm
-        # from stable_baselines3.sac import MlpPolicy as Model
-        from continuous_action_model import DiagGaussianPolicy as Model
-        policy = 'MlpPolicy'
-        cat_dim = 1
+        from ensemble.max_ent_sac import MaxEntSAC as Algorithm
+        disc_obs_shape = obs_shape
+        policy = 'EnsembleMlpPolicy'
+        alg_dict = {
+            'ent_coef': ent_coef,
+        }
 
     # create action model obs space by extending env's obs space
     disc_obs_space = gym.spaces.Box(low=env.observation_space.low.min(),
-                                       high=env.observation_space.high.max(),
-                                       shape=disc_obs_shape,
-                                       dtype=env.observation_space.dtype)
+                                    high=env.observation_space.high.max(),
+                                    shape=disc_obs_shape,
+                                    dtype=env.observation_space.dtype)
     if method == 'state':
         discrimination_model = DiscriminationModel(observation_space=disc_obs_space,
                                                    action_space=spaces.Discrete(ensemble_size),
@@ -109,17 +112,15 @@ def train():
         discrimination_trainer = None
 
     model = Algorithm(policy, env, verbose=1, gamma=gamma, buffer_size=buffer_size, learning_starts=learning_starts,
-                      discrimination_trainer=discrimination_trainer, device=device,
-                      ent_coef=ent_coef, method=method, temperature=temperature,
-                      batch_size=batch_size, exploration_final_eps=exploration_final_rate,
-                      exploration_initial_eps=exploration_initial_rate, learning_rate=lr,
-                      policy_kwargs={}, ensemble_size=ensemble_size, target_update_interval=target_update_interval)
+                      discrimination_trainer=discrimination_trainer, device=device, batch_size=batch_size,
+                      learning_rate=lr, policy_kwargs={}, ensemble_size=ensemble_size,
+                      method=method, target_update_interval=target_update_interval,
+                      **alg_dict)
 
     model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
     model.save("rooms")
 
-    eval_res = eval_policy(env, model)
-    print(f'Eval Result = {eval_res}')
+    eval_policy(env, model)
 
 
 if __name__ == '__main__':
