@@ -1,5 +1,5 @@
 from stable_baselines3.common.vec_env import DummyVecEnv
-from collections import OrderedDict
+import scipy.special
 from copy import deepcopy
 from typing import Any, Callable, List, Optional, Sequence, Union
 
@@ -12,12 +12,15 @@ from collections import deque
 
 
 class DummyEnsembleVecEnv(DummyVecEnv):
-    def __init__(self, env_fns: List[Callable[[], gym.Env]], ensemble_size: int = 1):
+    def __init__(self, env_fns: List[Callable[[], gym.Env]], ensemble_size: int = 1,
+                 prioritized_ensemble: bool = False):
         super(DummyEnsembleVecEnv, self).__init__(env_fns)
         self.ensemble_size = ensemble_size
         self.member = random.choice(range(ensemble_size))
         self.reward_queues = [deque(maxlen=50) for _ in range(self.ensemble_size)]
         self.cumulative_reward = 0
+        self.prioritized_ensemble = prioritized_ensemble
+        self.member_hist = deque(maxlen=100)
 
     def step_async(self, actions: np.ndarray) -> None:
         self.actions = actions
@@ -34,7 +37,7 @@ class DummyEnsembleVecEnv(DummyVecEnv):
                 obs = self.envs[env_idx].reset()
                 self.reward_queues[self.member].append(self.cumulative_reward)
                 self.cumulative_reward = 0
-                self.member = random.choice(range(self.ensemble_size))
+                self.member = self.draw_member()
             self._save_obs(env_idx, obs)
         return (self._obs_from_buf(), np.copy(self.buf_rews), np.copy(self.buf_dones), deepcopy(self.buf_infos))
 
@@ -47,3 +50,14 @@ class DummyEnsembleVecEnv(DummyVecEnv):
             self._save_obs(env_idx, obs)
             self.member = random.choice(range(self.ensemble_size))
         return self._obs_from_buf()
+
+    def draw_member(self):
+        w = [np.nanmean(queue) + 1e-8 for queue in self.reward_queues]
+        if np.any(np.isnan(w)) or not self.prioritized_ensemble:
+            w = [1./self.ensemble_size] * self.ensemble_size
+        else:
+            r_norm = np.array(w) / np.array(w).max()
+            w = scipy.special.softmax(r_norm)
+        m = np.random.choice(range(self.ensemble_size), 1, p=w)[0]
+        self.member_hist.append(m)
+        return m

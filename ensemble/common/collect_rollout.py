@@ -106,9 +106,13 @@ def collect_rollouts(
             if log_interval is not None and self._episode_num % log_interval == 0:
                 self._dump_logs()
 
+            # calculate how much each member is played (relevant for prioritized mode)
+            h = np.histogram(env.member_hist, bins=range(self.ensemble_size + 1))[0]
+            h = h / h.sum()
             logger.record("train/rewards",
                           format_string([np.nanmean(env.reward_queues[idx]) for idx in range(self.ensemble_size)]),
                           exclude="tensorboard")
+            logger.record("train/member_hist", format_string(h.tolist()), exclude="tensorboard")
 
     mean_reward = np.mean(episode_rewards) if total_episodes > 0 else 0.0
 

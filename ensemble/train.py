@@ -14,7 +14,7 @@ import GPUtil
 def eval_policy(env, model, steps=1000):
     obs = env.reset()
     traj_rewards = [0]
-    for _ in range(steps):
+    while True:
         if np.random.rand() < model.exploration_rate:
             action = [model.action_space.sample() for _ in range(model.ensemble_size)]
         else:
@@ -29,9 +29,8 @@ def eval_policy(env, model, steps=1000):
             obs = env.reset()
             m = input('Enter member idx: ')
             env.member = int(m)
-            print(f"env member: {env.member}")
+            print(f"env member: {env.member}, R: {np.mean(traj_rewards)}")
             traj_rewards.append(0)
-    return np.mean(traj_rewards)
 
 
 def train():
@@ -55,14 +54,15 @@ def train():
     # Regularization types:
     # 1. none: g = 0
     # 2. entropy: g = entropy
-    # 3. ensemble_entropy: g = entropy + one sided kl
+    # 3. mutual_info:
     # 4. state: g = - log discrimination
     # method = 'next_mutual_info'; ent_coef = 0.1
-    method = 'entropy'; ent_coef = 0.05
+    # method = 'entropy'; ent_coef = 0.05
     # method = 'mutual_info'; ent_coef = 0.05
     # method = 'none'; ent_coef = 0
-    # method = 'state'; ent_coef = 0.05
+    method = 'state'; ent_coef = 0.025
     ensemble_size = 3
+    prioritized = True
     discrete = True
     empty = False
     n_redundancies = 1
@@ -77,7 +77,8 @@ def train():
                                                 goal=[1, 1], state=[room_size - 2, room_size - 2],
                                                 fixed_reset=True, n_redundancies=n_redundancies, max_repeats=max_repeats,
                                                 horz_wind=(right_wind, left_wind), vert_wind=(up_wind, down_wind),
-                                                empty=empty, seed=0, )], ensemble_size=ensemble_size)
+                                                empty=empty, seed=0)],
+                              ensemble_size=ensemble_size, prioritized_ensemble=prioritized)
 
     obs_shape = list(env.observation_space.shape)
     if discrete:
