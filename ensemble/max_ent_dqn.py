@@ -155,7 +155,7 @@ class MaxEntDQN(DQN):
                     g = ent + descendants_ce
                     logger.record("train/cross_entropy", [descendants_ce.min().item(), descendants_ce.mean().item(),
                                                           descendants_ce.max().item()], exclude="tensorboard")
-                elif self.method == 'mutual_info':
+                elif self.method == 'action':
                     pi = th.nn.Softmax(dim=2)(current_q / self.temperature)
                     z = -th.log(pi + 1e-10)
                     a = z.cumsum(1) - z + 1e-8
@@ -163,12 +163,14 @@ class MaxEntDQN(DQN):
                     g = th.gather(a, dim=2, index=idxs).squeeze(2)
                     w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
                     g = g * w
-                elif self.method == 'next_mutual_info':
-                    next_pi_cumsum = next_pi.cumsum(1)
-                    ens_next_pi = next_pi_cumsum / next_pi_cumsum.sum(2, keepdims=True)
-                    # KLDivloss: input = logits. target = probs.
-                    # g = th.nn.KLDivLoss(reduction='none')(input=(ens_next_pi+1e-2).log(), target=next_pi).sum(2)
-                    g = th.nn.KLDivLoss(reduction='none')(input=(next_pi+1e-8).log(), target=ens_next_pi).sum(2)
+                elif self.method == 'next_action':
+                    next_pi_repeated = next_pi.repeat(1, self.ensemble_size, 1)
+                    next_pi_interleaved = th.repeat_interleave(next_pi, repeats=self.ensemble_size, dim=1)
+                    z = th.nn.KLDivLoss(reduction='none')(input=(next_pi_interleaved + 1e-8).log(), target=next_pi_repeated).sum(2)
+                    z = z.view(b, self.ensemble_size, self.ensemble_size)
+                    g = th.cat([th.tril(x, diagonal=-1).sum(1, keepdims=True).view(1, -1) for x in z], 0)
+                    w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
+                    g = g * w
                 elif self.method == 'state':
                     next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
                         replay_data.next_observations)

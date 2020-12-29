@@ -56,12 +56,12 @@ def train():
     # 2. entropy: g = entropy
     # 3. mutual_info:
     # 4. state: g = - log discrimination
-    # method = 'next_mutual_info'; ent_coef = 0.1
-    # method = 'entropy'; ent_coef = 0.05
-    # method = 'mutual_info'; ent_coef = 0.05
     # method = 'none'; ent_coef = 0
-    method = 'state'; ent_coef = 0.025
-    ensemble_size = 3
+    # method = 'entropy'; ent_coef = 0.05
+    # method = 'next_action'; ent_coef = 0.1
+    # method = 'action'; ent_coef = 0.05
+    # method = 'state'; ent_coef = 0.025
+    ensemble_size = 4
     prioritized = True
     discrete = True
     empty = False
