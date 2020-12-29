@@ -88,9 +88,9 @@ def train():
           'exploration_final_eps': exploration_final_rate,
           'exploration_initial_eps': exploration_initial_rate,
         }
-
     else:
         from ensemble.max_ent_sac import MaxEntSAC as Algorithm
+        from stable_baselines3.dqn.policies import MlpPolicy as DiscriminationModel
         disc_obs_shape = obs_shape
         policy = 'EnsembleMlpPolicy'
         alg_dict = {

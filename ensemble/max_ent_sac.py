@@ -170,6 +170,14 @@ class MaxEntSAC(SAC):
                     ens_next_log_prob = next_log_prob.cumsum(1) - next_log_prob
                     w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
                     g = - (ens_next_log_prob * w).unsqueeze(2)
+                elif self.method == 'state':
+                    next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
+                        replay_data.next_observations)
+                    next_member_logprob = th.nn.LogSoftmax(dim=1)(next_member_logits)
+                    # accumulate penalty from all masters
+                    g = next_member_logprob - next_member_logprob.cumsum(1)
+                    w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
+                    g = (g * w).unsqueeze(2)
                 target_q = target_q + ent_coef * g
                 # td error + entropy term
                 q_backup = rewards + (1 - dones) * self.gamma * target_q
