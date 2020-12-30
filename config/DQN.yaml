@@ -1,0 +1,30 @@
+discrete: True
+
+alg:
+  learning_rate: 0.0003
+  gamma: 0.9
+  buffer_size: 50000
+  learning_starts: 10000
+  batch_size: 128
+  temperature: 0.02
+  exploration_initial_eps: 0.05
+  exploration_final_eps: 0.05
+  target_update_interval: 100
+  ensemble_size: 4
+  policy_kwargs: 'empty_dict'
+  verbose: 1
+
+  # [none, entropy, action, next_action, state]
+  # [0.0,  0.05,    0.05,   0.1,         0.05 ]
+
+  method: 'state'
+  ent_coef: 0.05
+
+buffer:
+  prioritized_ensemble: True
+
+learn:
+  total_timesteps: 150000
+  log_interval: 50
+
+

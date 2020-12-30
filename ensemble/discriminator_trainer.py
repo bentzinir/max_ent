@@ -10,9 +10,8 @@ class DiscriminatorTrainer:
 
     :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
     """
-    def __init__(self, discrimination_model, lr, discrete):
+    def __init__(self, discrimination_model, discrete):
         self.discrimination_model = discrimination_model
-        self.optimizer = torch.optim.Adam(self.discrimination_model.parameters(), lr=lr)
         self.discrete = discrete
 
     def train_step(self, batch, **kwargs):
@@ -22,11 +21,11 @@ class DiscriminatorTrainer:
         m = Categorical(logits=logits)
 
         # Optimize the discrimination model
-        self.optimizer.zero_grad()
+        self.discrimination_model.optimizer.zero_grad()
         loss.backward()
         # Clip gradient norm
         torch.nn.utils.clip_grad_norm_(self.discrimination_model.parameters(), kwargs.get('max_grad_norm', np.inf))
-        self.optimizer.step()
+        self.discrimination_model.optimizer.step()
         acc = (logits.argmax(dim=1) == batch.members.view(-1)).float().mean()
         logger.record("discrimination model/loss", loss.item())
         logger.record("discrimination model/accuracy", acc.item())
