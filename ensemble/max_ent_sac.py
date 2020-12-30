@@ -52,6 +52,9 @@ class MaxEntSAC(SAC):
             ensemble_size: int = 1,
     ):
         policy_kwargs.update({"ensemble_size": ensemble_size})
+        self.method = method
+        self.ensemble_size = ensemble_size
+        self.discrimination_trainer = discrimination_trainer
         super(MaxEntSAC, self).__init__(
             policy,
             env,
@@ -97,10 +100,6 @@ class MaxEntSAC(SAC):
             ensemble_size=ensemble_size,
         )
 
-        self.method = method
-        self.ensemble_size = ensemble_size
-        self.discrimination_trainer = discrimination_trainer
-
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         # Update optimizers learning rate
         optimizers = [self.actor.optimizer, self.critic.optimizer]
@@ -133,25 +132,10 @@ class MaxEntSAC(SAC):
             actions_pi, log_prob = self.actor.action_log_prob(replay_data.observations)
             log_prob = log_prob.reshape(-1, self.ensemble_size, 1)
 
-            ent_coef_loss = None
             if self.ent_coef_optimizer is not None:
-                # Important: detach the variable from the graph
-                # so we don't change it with other losses
-                # see https://github.com/rail-berkeley/softlearning/issues/60
-                ent_coef = th.exp(self.log_ent_coef.detach())
-                ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
-                ent_coef_losses.append(ent_coef_loss.item())
+                ent_coef = th.exp(self.log_ent_coef.detach()).view(1, self.ensemble_size, 1)
             else:
-                ent_coef = self.ent_coef_tensor
-
-            ent_coefs.append(ent_coef.item())
-
-            # Optimize entropy coefficient, also called
-            # entropy temperature or alpha in the paper
-            if ent_coef_loss is not None:
-                self.ent_coef_optimizer.zero_grad()
-                ent_coef_loss.backward()
-                self.ent_coef_optimizer.step()
+                ent_coef = self.ent_coef_tensor.view(1, self.ensemble_size, 1)
 
             with th.no_grad():
                 # Select action according to policy
@@ -167,7 +151,7 @@ class MaxEntSAC(SAC):
                 elif self.method == 'action':
                     pass
                 elif self.method == 'next_action':
-                    ens_next_log_prob = next_log_prob.cumsum(1) - next_log_prob
+                    ens_next_log_prob = next_log_prob.cumsum(1)  # - next_log_prob
                     w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
                     g = - (ens_next_log_prob * w).unsqueeze(2)
                 elif self.method == 'state':
@@ -175,9 +159,9 @@ class MaxEntSAC(SAC):
                         replay_data.next_observations)
                     next_member_logprob = th.nn.LogSoftmax(dim=1)(next_member_logits)
                     # accumulate penalty from all masters
-                    g = next_member_logprob - next_member_logprob.cumsum(1)
+                    ens_next_s_prob = next_member_logprob.cumsum(1)  # - next_member_logprob
                     w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
-                    g = (g * w).unsqueeze(2)
+                    g = - (ens_next_s_prob * w).unsqueeze(2)
                 target_q = target_q + ent_coef * g
                 # td error + entropy term
                 q_backup = rewards + (1 - dones) * self.gamma * target_q
@@ -216,13 +200,57 @@ class MaxEntSAC(SAC):
             if gradient_step % self.target_update_interval == 0:
                 polyak_update(self.critic.parameters(), self.critic_target.parameters(), self.tau)
 
+            # Auto Entropy Adjustments
+            if self.ent_coef_optimizer is not None:
+                # Important: detach the variable from the graph
+                # so we don't change it with other losses
+                # see https://github.com/rail-berkeley/softlearning/issues/60
+                ent_coef_loss_vec = -(self.log_ent_coef.view(1, self.ensemble_size, 1) *
+                                      (-g + self.target_entropy).detach()).mean(0)
+                ent_coef_loss = ent_coef_loss_vec.mean()
+                ent_coef_losses.append(ent_coef_loss.item())
+                self.ent_coef_optimizer.zero_grad()
+                ent_coef_loss.backward()
+                self.ent_coef_optimizer.step()
+
         self._n_updates += gradient_steps
 
+        logger.record("train/method", self.method, exclude="tensorboard")
         logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
-        logger.record("train/ent_coef", np.mean(ent_coefs))
-        logger.record("train/actor_loss", format_string(actor_loss_vec.cpu().detach().numpy().tolist()))
-        logger.record("train/critic_loss", format_string(critic_loss_vec.cpu().detach().numpy().tolist()))
-        logger.record("train/g", format_string(g.mean(0).squeeze(1).cpu().numpy().tolist()), exclude="tensorboard")
-        if len(ent_coef_losses) > 0:
-            logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
+        logger.record("train/ent_coef", format_string(ent_coef.cpu().detach().numpy()))
+        logger.record("train/entropy", format_string((-log_prob).mean(0).cpu().detach().numpy()))
+        logger.record("train/actor_loss", format_string(actor_loss_vec.cpu().detach().numpy()))
+        logger.record("train/critic_loss", format_string(critic_loss_vec.cpu().detach().numpy()))
+        logger.record("train/g", format_string(g.mean(0).cpu().numpy()), exclude="tensorboard")
 
+    def _setup_model(self) -> None:
+        super(SAC, self)._setup_model()
+        self._create_aliases()
+        # Target entropy is used when learning the entropy coefficient
+        if self.target_entropy == "auto":
+            # automatically set target entropy if needed
+            self.target_entropy = -np.prod(self.env.action_space.shape).astype(np.float32)
+        else:
+            # Force conversion
+            # this will also throw an error for unexpected string
+            self.target_entropy = float(self.target_entropy)
+
+        # The entropy coefficient or entropy can be learned automatically
+        # see Automating Entropy Adjustment for Maximum Entropy RL section
+        # of https://arxiv.org/abs/1812.05905
+        if isinstance(self.ent_coef, str) and self.ent_coef.startswith("auto"):
+            # Default initial value of ent_coef when learned
+            init_value = 1.0
+            if "_" in self.ent_coef:
+                init_value = float(self.ent_coef.split("_")[1])
+                assert init_value > 0.0, "The initial value of ent_coef must be greater than 0"
+
+            # Note: we optimize the log of the entropy coeff which is slightly different from the paper
+            # as discussed in https://github.com/rail-berkeley/softlearning/issues/37
+            self.log_ent_coef = th.log(th.ones(self.ensemble_size, device=self.device) * init_value).requires_grad_(True)
+            self.ent_coef_optimizer = th.optim.Adam([self.log_ent_coef], lr=self.lr_schedule(1))
+        else:
+            # Force conversion to float
+            # this will throw an error if a malformed string (different from 'auto')
+            # is passed
+            self.ent_coef_tensor = th.tensor(float(self.ent_coef)).to(self.device).repeat(self.ensemble_size)

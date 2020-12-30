@@ -1,5 +1,5 @@
 from typing import Any, Callable, Dict, List, Optional, Type
-
+from stable_baselines3.common.distributions import Categorical
 import gym
 import torch as th
 from torch import nn
@@ -21,6 +21,7 @@ class EnsembleQNetwork(QNetwork):
         activation_fn: Type[nn.Module] = nn.ReLU,
         normalize_images: bool = True,
         ensemble_size: int = 1,
+        temperature: float = 1,
     ):
         super(EnsembleQNetwork, self).__init__(
             observation_space,
@@ -33,6 +34,7 @@ class EnsembleQNetwork(QNetwork):
         )
 
         self.ensemble_size = ensemble_size
+        self.temperature = temperature
         action_dim = self.action_space.n  # number of actions
         self.qvec = []
         for e in range(ensemble_size):
@@ -50,6 +52,15 @@ class EnsembleQNetwork(QNetwork):
         x = self.extract_features(obs)
         return th.cat([q(x).unsqueeze(1) for q in self.q_net], dim=1)
 
+    def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
+        q_values = self.forward(observation)
+        # Greedy action
+        if deterministic:
+            return q_values.argmax(dim=1).reshape(-1)
+        else:
+            z = q_values / self.temperature
+            return Categorical(logits=z).sample().squeeze(0)
+
 
 class EnsembleDQNPolicy(DQNPolicy):
     def __init__(
@@ -65,8 +76,10 @@ class EnsembleDQNPolicy(DQNPolicy):
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         ensemble_size: int = 1,
+        temperature: float = 1,
     ):
         self.ensemble_size = ensemble_size
+        self.temperature = temperature
         super(EnsembleDQNPolicy, self).__init__(
             observation_space,
             action_space,
@@ -83,7 +96,8 @@ class EnsembleDQNPolicy(DQNPolicy):
     def make_q_net(self) -> QNetwork:
         # Make sure we always have separate networks for features extractors etc
         net_args = self._update_features_extractor(self.net_args, features_extractor=None)
-        return EnsembleQNetwork(**net_args, ensemble_size=self.ensemble_size).to(self.device)
+        return EnsembleQNetwork(**net_args, ensemble_size=self.ensemble_size, temperature=self.temperature).to(
+            self.device)
 
 
 EnsembleMlpPolicy = EnsembleDQNPolicy
@@ -103,6 +117,7 @@ class EnsembleCnnPolicy(EnsembleDQNPolicy):
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         ensemble_size: int = 1,
+        temperature: float = 1,
     ):
 
         super(EnsembleCnnPolicy, self).__init__(
@@ -117,6 +132,7 @@ class EnsembleCnnPolicy(EnsembleDQNPolicy):
             optimizer_class,
             optimizer_kwargs,
             ensemble_size,
+            temperature,
         )
 
 

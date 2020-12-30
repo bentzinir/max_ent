@@ -53,9 +53,9 @@ def train():
     # 3. mutual_info:
     # 4. state: g = - log discrimination
     # method = 'none'; ent_coef = 0
-    # method = 'entropy'; ent_coef = 0.05
-    method = 'next_action'; ent_coef = 0.05
-    # method = 'action'; ent_coef = 0.05
+    # method = 'entropy'; ent_coef = 'auto'
+    method = 'next_action'; ent_coef = 'auto'
+    # method = 'action'; ent_coef = 'auto'
     # method = 'state'; ent_coef = 0.025
     ensemble_size = 4
     prioritized = True

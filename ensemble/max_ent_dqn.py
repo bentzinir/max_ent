@@ -9,7 +9,6 @@ from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.dqn.policies import DQNPolicy
 from stable_baselines3.dqn import DQN
 import types
-from stable_baselines3.common.distributions import Categorical
 from ensemble.common.buffers import EnsembleReplayBuffer
 from ensemble.common.collect_rollout import collect_rollouts
 from ensemble.common.sample_action import sample_action
@@ -50,7 +49,8 @@ class MaxEntDQN(DQN):
             temperature: float = 1,
             ensemble_size: int = 1,
     ):
-        policy_kwargs.update({"ensemble_size": ensemble_size})
+        policy_kwargs.update({"ensemble_size": ensemble_size,
+                              "temperature": temperature})
         super(MaxEntDQN, self).__init__(
             policy,
             env,
@@ -77,18 +77,6 @@ class MaxEntDQN(DQN):
             device,
             _init_setup_model,
         )
-
-        def soft_predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
-            q_values = self.forward(observation)
-            # Greedy action
-            if deterministic:
-                return q_values.argmax(dim=1).reshape(-1)
-            else:
-                z = q_values / temperature
-                return Categorical(logits=z).sample().squeeze(0)
-
-        # replace self.q_net._predict with soft_predict for this object only
-        self.q_net._predict = types.MethodType(soft_predict, self.q_net)
 
         # override collect_rollout method for this object only
         self.collect_rollouts = types.MethodType(collect_rollouts, self)
