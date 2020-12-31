@@ -6,10 +6,10 @@ policy:
   buffer_size: 100000
   learning_starts: 10000
   batch_size: 128
-  temperature: 0.02
+  temperature: 0.002
   exploration_initial_eps: 0.05
   exploration_final_eps: 0.05
-  target_update_interval: 100
+  target_update_interval: 1000
   policy_kwargs: 'empty_dict'
   verbose: 1
 
