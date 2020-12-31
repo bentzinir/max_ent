@@ -116,7 +116,7 @@ def collect_rollouts(
                           format_string([np.nanmean(env.eplen_queues[idx]) for idx in range(self.ensemble_size)]),
                           exclude="tensorboard")
             logger.record("train/member_hist", format_string(h.tolist()), exclude="tensorboard")
-
+            logger.record("train/ID", self.env.unwrapped.envs[0].spec.id, exclude="tensorboard")
     mean_reward = np.mean(episode_rewards) if total_episodes > 0 else 0.0
 
     callback.on_rollout_end()
