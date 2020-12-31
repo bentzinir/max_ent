@@ -144,7 +144,7 @@ class MaxEntSAC(SAC):
                 targets = self.critic_target(replay_data.next_observations, next_actions)
                 target_q, _ = th.min(targets, dim=2, keepdim=True)
                 # add entropy term
-                if self.method == 'none':
+                if self.method == 'plain':
                     g = th.zeros_like(target_q)
                 elif self.method == 'entropy':
                     g = - next_log_prob.unsqueeze(2)

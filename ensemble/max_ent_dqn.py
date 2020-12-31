@@ -162,7 +162,7 @@ class MaxEntDQN(DQN):
                 ent = HLoss()(next_pi_logits, dim=2)
                 one_hot_active_idx = th.nn.functional.one_hot(replay_data.members.squeeze() + 1, self.ensemble_size + 1)
                 child_mask = th.cumsum(one_hot_active_idx, dim=1)[:, :-1]
-                if self.method == 'none':
+                if self.method == 'plain':
                     g = th.zeros_like(target_q)
                 elif self.method == 'entropy':
                     g = ent
