@@ -242,6 +242,7 @@ class MaxEntSAC(SAC):
         # see Automating Entropy Adjustment for Maximum Entropy RL section
         # of https://arxiv.org/abs/1812.05905
         if isinstance(self.ent_coef, str) and self.ent_coef.startswith("auto"):
+            assert self.method != 'state', 'We didnt really implemented auto tuning in SAC state mode ...'
             # Default initial value of ent_coef when learned
             init_value = 1.0
             if "_" in self.ent_coef:
