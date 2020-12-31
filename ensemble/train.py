@@ -70,6 +70,7 @@ if __name__ == '__main__':
     args, extra_args = parser.parse_known_args()
     config = get_config(args.f)
     config["algorithm"] = Config(config.algorithm)
+    config.env_kwargs.discrete = config.algorithm.discrete
     config.algorithm.buffer["ensemble_size"] = config.ensemble_size
     config.algorithm.policy["ensemble_size"] = config.ensemble_size
 

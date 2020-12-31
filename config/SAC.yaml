@@ -1,6 +1,6 @@
 discrete: False
 
-alg:
+policy:
   learning_rate: 0.0003
   gamma: 0.9
   buffer_size: 50000
