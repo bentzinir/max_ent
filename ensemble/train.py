@@ -7,8 +7,6 @@ import time
 from ensemble.dummy_ensemble_vec_env import DummyEnsembleVecEnv
 from ensemble.discriminator_trainer import DiscriminatorTrainer
 from gym import spaces
-import torch
-import GPUtil
 from config.parser_args import get_config
 import argparse
 
