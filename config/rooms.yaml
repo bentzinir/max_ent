@@ -1,0 +1,15 @@
+env_id: 'rooms-v0'
+algorithm: 'DQN'
+ensemble_size: 4
+env_kwargs:
+  n_redundancies: 4
+  empty: False
+  fixed_reset: True
+  max_repeats: 1
+  rows: 10
+  cols: 10
+  goal: [1, 1]
+  state: [ -2,  -2]
+  horz_wind: [0.0, 0.0]  # (right, left)
+  vert_wind: [0.0, 0.0]  # (up, down)
+  seed: 0

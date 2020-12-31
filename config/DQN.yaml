@@ -1,6 +1,6 @@
 discrete: True
 
-alg:
+policy:
   learning_rate: 0.0003
   gamma: 0.9
   buffer_size: 50000
@@ -10,7 +10,6 @@ alg:
   exploration_initial_eps: 0.05
   exploration_final_eps: 0.05
   target_update_interval: 100
-  ensemble_size: 4
   policy_kwargs: 'empty_dict'
   verbose: 1
 
