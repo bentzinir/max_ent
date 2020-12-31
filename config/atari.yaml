@@ -2,4 +2,5 @@ env_id: 'BreakoutNoFrameskip-v4'
 algorithm_type: 'DQN'
 ensemble_size: 1
 env_kwargs: 'empty_dict'
+vec_env_kwargs: 'empty_dict'
 is_atari: True
