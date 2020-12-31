@@ -17,6 +17,7 @@ policy:
   # [0.0,  0.05,    0.05,   0.1,         auto ]
 
   method: 'state'
+  target_entropy: 'auto'
   ent_coef: 'auto'
   max_ent_frac: 0.8
   max_ent_coef: 0.1

@@ -223,7 +223,7 @@ class MaxEntDQN(DQN):
             # Logging
             logger.record("train/method", self.method, exclude="tensorboard")
             logger.record("train/entropy", format_string(ent.mean(0).cpu().numpy().tolist()), exclude="tensorboard")
-            logger.record("train/ent_coef", format_string(ent_coef.cpu().numpy().tolist()))
+            logger.record("train/ent_coef", format_string(th.tensor(ent_coef).cpu().numpy().tolist()))
             logger.record("train/g", format_string(g.mean(0).cpu().numpy().tolist()), exclude="tensorboard")
             logger.record("train/Q", format_string(current_q.mean(0).cpu().detach().numpy().tolist()), exclude="tensorboard")
             logger.record("train/loss_vec", format_string(loss_vec.cpu().detach().numpy().tolist()), exclude="tensorboard")
@@ -255,7 +255,6 @@ class MaxEntDQN(DQN):
 
         # Target entropy (of the state model) is used when learning the entropy coefficient
         if self.target_entropy == "auto":
-            assert self.method == 'state', f"Auto coefficient tuning is not supported in {self.method} mode!!!"
             # automatically set target entropy if needed
             self.target_entropy = self.max_ent_frac * np.log(self.ensemble_size).astype(np.float32)
         else:
@@ -267,6 +266,7 @@ class MaxEntDQN(DQN):
         # see Automating Entropy Adjustment for Maximum Entropy RL section
         # of https://arxiv.org/abs/1812.05905
         if isinstance(self.ent_coef, str) and self.ent_coef.startswith("auto"):
+            assert self.method == 'state', f"Auto coefficient tuning is not supported in {self.method} mode!!!"
             # Default initial value of ent_coef when learned
             init_value = 1.0
             if "_" in self.ent_coef:
