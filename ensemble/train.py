@@ -67,9 +67,8 @@ def train(env_id, env_kwargs):
     model = Algorithm(policy, env, discrimination_trainer=discrimination_trainer, **config.alg)
 
     model.learn(**config.learn)
-    model.save("rooms")
-
     eval_policy(env, model)
+    model.save(env_id)
 
 
 if __name__ == '__main__':
@@ -85,6 +84,7 @@ if __name__ == '__main__':
     rooms_kwargs = {
         'n_redundancies': 4,
         'empty': False,
+        'fixed_reset': True,
         'max_repeats': 1,
         'rows': room_size,
         'cols': room_size,

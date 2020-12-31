@@ -18,13 +18,17 @@ alg:
   # [0.0,  0.05,    0.05,   0.1,         0.05 ]
 
   method: 'state'
-  ent_coef: 0.05
+  ent_coef: 'auto'
+#  ent_coef: 0.005
+  max_ent_frac: 0.8
+  max_ent_coef: 0.1
+  min_ent_coef: 0.005
 
 buffer:
   prioritized_ensemble: True
 
 learn:
-  total_timesteps: 150000
+  total_timesteps: 200000
   log_interval: 50
 
 

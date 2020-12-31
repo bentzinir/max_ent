@@ -44,13 +44,29 @@ class MaxEntDQN(DQN):
             device: Union[th.device, str] = "auto",
             _init_setup_model: bool = True,
             discrimination_trainer=None,
+            target_entropy: Union[str, float] = "auto",
             ent_coef: float = 0.1,
+            max_ent_frac: float = 1.,
+            max_ent_coef: float = 1.,
+            min_ent_coef: float = 0.001,
             method: str = 'none',
             temperature: float = 1,
             ensemble_size: int = 1,
     ):
         policy_kwargs.update({"ensemble_size": ensemble_size,
                               "temperature": temperature})
+
+        self.discrimination_trainer = discrimination_trainer
+        self.ent_coef = ent_coef
+        self.ent_coef_optimizer = None
+        self.max_ent_frac = max_ent_frac
+        self.max_ent_coef = max_ent_coef
+        self.min_ent_coef = min_ent_coef
+        self.target_entropy = target_entropy
+        self.method = method
+        self.temperature = temperature
+        self.ensemble_size = ensemble_size
+
         super(MaxEntDQN, self).__init__(
             policy,
             env,
@@ -94,12 +110,6 @@ class MaxEntDQN(DQN):
             ensemble_size=ensemble_size,
         )
 
-        self.discrimination_trainer = discrimination_trainer
-        self.ent_coef = ent_coef
-        self.method = method
-        self.temperature = temperature
-        self.ensemble_size = ensemble_size
-
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Update learning rate according to schedule
         self._update_learning_rate(self.policy.optimizer)
@@ -111,9 +121,30 @@ class MaxEntDQN(DQN):
 
             b, c, h, w = replay_data.observations.shape
 
+            ent_coef = self.ent_coef
+
             # train discrimination model
             if self.method == 'state':
                 self.discrimination_trainer.train_step(replay_data, max_grad_norm=self.max_grad_norm)
+
+                next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
+                    replay_data.next_observations)
+
+                # Auto adjust ent coefficient by measuring state model entropy
+                ent_coef_loss = None
+                if self.ent_coef_optimizer is not None:
+                    # Important: detach the variable from the graph
+                    ent_coef = th.exp(self.log_ent_coef.detach())
+                    # clipping entropy coefficient from above
+                    ent_coef = th.clamp(ent_coef, self.min_ent_coef, self.max_ent_coef)
+                    ent_coef_loss = - self.log_ent_coef * (self.discrimination_trainer.entropy - self.target_entropy)
+
+                # Optimize entropy coefficient, also called
+                # entropy temperature or alpha in the paper
+                if ent_coef_loss is not None:
+                    self.ent_coef_optimizer.zero_grad()
+                    ent_coef_loss.backward()
+                    self.ent_coef_optimizer.step()
 
             # Get current Q estimates
             current_q = self.q_net(replay_data.observations).view(b, self.ensemble_size, -1)
@@ -152,8 +183,6 @@ class MaxEntDQN(DQN):
                     w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
                     g = g * w
                 elif self.method == 'state':
-                    next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
-                        replay_data.next_observations)
                     next_member_logprob = th.nn.LogSoftmax(dim=1)(next_member_logits)
                     # accumulate penalty from all masters
                     g = next_member_logprob - next_member_logprob.cumsum(1)
@@ -163,7 +192,7 @@ class MaxEntDQN(DQN):
                     raise ValueError
 
                 # Apply Entropy regularization
-                target_q += self.ent_coef * g
+                target_q += ent_coef * g
 
                 # 1-step TD target
                 target_q = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_q
@@ -194,6 +223,7 @@ class MaxEntDQN(DQN):
             # Logging
             logger.record("train/method", self.method, exclude="tensorboard")
             logger.record("train/entropy", format_string(ent.mean(0).cpu().numpy().tolist()), exclude="tensorboard")
+            logger.record("train/ent_coef", ent_coef)
             logger.record("train/g", format_string(g.mean(0).cpu().numpy().tolist()), exclude="tensorboard")
             logger.record("train/Q", format_string(current_q.mean(0).cpu().detach().numpy().tolist()), exclude="tensorboard")
             logger.record("train/loss_vec", format_string(loss_vec.cpu().detach().numpy().tolist()), exclude="tensorboard")
@@ -213,9 +243,42 @@ class MaxEntDQN(DQN):
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
 
         if not deterministic and np.random.rand() < self.exploration_rate:
-            n_batch = self._last_obs.shape[0]
-            action = [[self.action_space.sample() for k in range(self.ensemble_size)]]
+            action = [[self.action_space.sample() for _ in range(self.ensemble_size)]]
         else:
-            action, state = self.policy.predict(self._last_obs)
+            action, state = self.policy.predict(observation, deterministic=deterministic)
             action = [action]
         return action, state
+
+    def _setup_model(self) -> None:
+
+        super(MaxEntDQN, self)._setup_model()
+
+        # Target entropy (of the state model) is used when learning the entropy coefficient
+        if self.target_entropy == "auto":
+            # automatically set target entropy if needed
+            self.target_entropy = self.max_ent_frac * np.log(self.ensemble_size).astype(np.float32)
+        else:
+            # Force conversion
+            # this will also throw an error for unexpected string
+            self.target_entropy = float(self.target_entropy)
+
+        # The entropy coefficient or entropy can be learned automatically
+        # see Automating Entropy Adjustment for Maximum Entropy RL section
+        # of https://arxiv.org/abs/1812.05905
+        if isinstance(self.ent_coef, str) and self.ent_coef.startswith("auto"):
+            # Default initial value of ent_coef when learned
+            init_value = 1.0
+            if "_" in self.ent_coef:
+                init_value = float(self.ent_coef.split("_")[1])
+                assert init_value > 0.0, "The initial value of ent_coef must be greater than 0"
+
+            # Note: we optimize the log of the entropy coeff which is slightly different from the paper
+            # as discussed in https://github.com/rail-berkeley/softlearning/issues/37
+            self.log_ent_coef = th.log(th.ones(1, device=self.device) * init_value).requires_grad_(True)
+
+            self.ent_coef_optimizer = th.optim.Adam([self.log_ent_coef], lr=self.lr_schedule(1))
+        else:
+            # Force conversion to float
+            # this will throw an error if a malformed string (different from 'auto')
+            # is passed
+            self.ent_coef_tensor = th.tensor(float(self.ent_coef)).to(self.device)
