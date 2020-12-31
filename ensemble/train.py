@@ -97,3 +97,4 @@ if __name__ == '__main__':
     }
 
     train(env_id=env_id, env_kwargs=rooms_kwargs)
+
