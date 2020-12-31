@@ -149,7 +149,9 @@ class MaxEntSAC(SAC):
                 elif self.method == 'entropy':
                     g = - next_log_prob.unsqueeze(2)
                 elif self.method == 'action':
-                    pass
+                    ens_log_prob = log_prob.cumsum(1)  # - log_prob
+                    w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).view(1, self.ensemble_size, 1)
+                    g = - (ens_log_prob * w)
                 elif self.method == 'next_action':
                     ens_next_log_prob = next_log_prob.cumsum(1)  # - next_log_prob
                     w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
