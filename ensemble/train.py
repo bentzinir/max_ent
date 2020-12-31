@@ -10,6 +10,8 @@ from gym import spaces
 from config.parser_args import get_config
 from config.config import Config
 import argparse
+from stable_baselines3.common.env_util import make_vec_env
+from ensemble.make_atari_stack_env import make_atari_stack_env
 
 
 def eval_policy(env, model):
@@ -31,7 +33,15 @@ def eval_policy(env, model):
 
 
 def train(config):
-    env = DummyEnsembleVecEnv([lambda: gym.make(config.env_id, **config.env_kwargs)], **config.algorithm.buffer)
+    # env = DummyEnsembleVecEnv([lambda: gym.make(config.env_id, **config.env_kwargs)], **config.algorithm.buffer)
+    # env = make_vec_env(config.env_id, n_envs=1, seed=0, vec_env_cls=DummyEnsembleVecEnv, env_kwargs=config.env_kwargs)
+    # env = make_atari_stack_env(config.env_id, n_envs=1, seed=0, vec_env_cls=DummyEnsembleVecEnv)
+    if config.is_atari:
+        make_env = make_atari_stack_env
+    else:
+        make_env = make_vec_env
+    env = make_env(config.env_id, n_envs=1, seed=0, vec_env_cls=DummyEnsembleVecEnv, env_kwargs=config.env_kwargs)
+
     obs_shape = list(env.observation_space.shape)
     if config.algorithm.discrete:
         from ensemble.max_ent_dqn import MaxEntDQN as Algorithm

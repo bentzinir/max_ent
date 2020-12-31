@@ -2,3 +2,4 @@ env_id: 'Hopper-v2'
 algorithm_type: 'SAC'
 ensemble_size: 1
 env_kwargs: 'empty_dict'
+is_atari: False
