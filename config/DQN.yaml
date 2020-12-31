@@ -13,7 +13,7 @@ policy:
   policy_kwargs: 'empty_dict'
   verbose: 1
 
-  # [none, entropy, action, next_action, state]
+  # [plain, entropy, action, next_action, state]
   # [0.0,  0.05,    0.05,   0.1,         auto ]
 
   method: 'state'
