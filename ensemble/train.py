@@ -38,6 +38,8 @@ def train(env_id, env_kwargs):
     else:
         config.device = torch.device('cpu')
 
+    config.alg.device = config.device
+
     env = DummyEnsembleVecEnv([lambda: gym.make(env_id, **env_kwargs)], **config.buffer)
     obs_shape = list(env.observation_space.shape)
     if config.discrete:
