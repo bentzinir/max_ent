@@ -162,6 +162,9 @@ class MaxEntSAC(SAC):
                     ens_next_s_prob = next_member_logprob.cumsum(1)  # - next_member_logprob
                     w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
                     g = - (ens_next_s_prob * w).unsqueeze(2)
+                else:
+                    raise ValueError
+
                 target_q = target_q + ent_coef * g
                 # td error + entropy term
                 q_backup = rewards + (1 - dones) * self.gamma * target_q

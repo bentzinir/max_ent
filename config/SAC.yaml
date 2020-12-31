@@ -7,21 +7,20 @@ policy:
   learning_starts: 5000
   batch_size: 128
   target_update_interval: 1
-  ensemble_size: 4
   policy_kwargs: 'empty_dict'
   verbose: 1
 
   # [none, entropy, action, next_action, state]
   # [0.0,  0.05,    0.05,   0.1,         0.05 ]
 
-  method: 'next_action'
+  method: 'entropy'
   ent_coef: 'auto'
 
 buffer:
   prioritized_ensemble: True
 
 learn:
-  total_timesteps: 50000
-  log_interval: 10
+  total_timesteps: 5000000
+  log_interval: 100
 
 

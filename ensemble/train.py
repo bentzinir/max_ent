@@ -69,8 +69,8 @@ if __name__ == '__main__':
     parser.add_argument("--f", type=str, default="none")
     args, extra_args = parser.parse_known_args()
     config = get_config(args.f)
-    config["algorithm"] = Config(config.algorithm)
-    config.env_kwargs.discrete = config.algorithm.discrete
+    algorithm_config = Config(config.algorithm_type)
+    config.merge({"algorithm": algorithm_config}, override=False)
     config.algorithm.buffer["ensemble_size"] = config.ensemble_size
     config.algorithm.policy["ensemble_size"] = config.ensemble_size
 
