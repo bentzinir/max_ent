@@ -82,4 +82,5 @@ if __name__ == '__main__':
     config.algorithm.buffer["ensemble_size"] = config.ensemble_size
     config.algorithm.policy["ensemble_size"] = config.ensemble_size
     config.vec_env_kwargs["ensemble_size"] = config.ensemble_size
+    config.algorithm.policy["device"] = config.device
     train(config)
