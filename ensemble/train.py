@@ -32,14 +32,6 @@ def eval_policy(env, model):
 
 
 def train(env_id, env_kwargs):
-    if torch.cuda.is_available():
-        deviceIds = GPUtil.getFirstAvailable(order='memory', maxLoad=0.8, maxMemory=0.8)
-        config.device = torch.device(f'cuda:{deviceIds[0]}')
-    else:
-        config.device = torch.device('cpu')
-
-    config.alg.device = config.device
-
     env = DummyEnsembleVecEnv([lambda: gym.make(env_id, **env_kwargs)], **config.buffer)
     obs_shape = list(env.observation_space.shape)
     if config.discrete:
@@ -66,6 +58,7 @@ def train(env_id, env_kwargs):
     else:
         discrimination_trainer = None
 
+    config.alg.device = config.device
     model = Algorithm(policy, env, discrimination_trainer=discrimination_trainer, **config.alg)
 
     model.learn(**config.learn)
