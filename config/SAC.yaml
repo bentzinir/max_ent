@@ -1,11 +1,11 @@
 discrete: False
 
 policy:
-  learning_rate: 0.003
+  learning_rate: 0.0003
   gamma: 0.99
   buffer_size: 300000
   learning_starts: 10000
-  batch_size: 100
+  batch_size: 256
   target_update_interval: 1
   policy_kwargs: 'empty_dict'
   verbose: 1

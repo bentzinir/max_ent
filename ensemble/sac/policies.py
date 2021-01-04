@@ -105,13 +105,19 @@ class EnsembleActor(Actor):
     def action_log_prob(self, obs: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         mean_actions, log_std, kwargs = self.get_action_dist_params(obs)
         # return action and associated log prob
-        z = [self.action_dist.log_prob_from_params(mean_actions[:, e, :], log_std[:, e, :], **kwargs)
-             for e in range(self.ensemble_size)]
-        mean_actions, log_std = zip(*z)
-        mean_actions = th.stack(mean_actions, dim=1)
-        log_std = th.stack(log_std, dim=1)
+        # z = [self.action_dist.log_prob_from_params(mean_actions[:, e, :], log_std[:, e, :], **kwargs)
+        #      for e in range(self.ensemble_size)]
+        # mean_actions, log_std = zip(*z)
+        # mean_actions = th.stack(mean_actions, dim=1)
+        # log_std = th.stack(log_std, dim=1)
+
+        a, s = [], []
+        for e in range(self.ensemble_size):
+            actions_n_std = self.action_dist.log_prob_from_params(mean_actions[:, e, :], log_std[:, e, :], **kwargs)
+            a.append(actions_n_std[0])
+            s.append(actions_n_std[1])
         # return self.action_dist.log_prob_from_params(mean_actions, log_std, **kwargs)
-        return mean_actions, log_std
+        return th.stack(a, dim=1), th.stack(s, dim=1)
 
 
 class ContinuousEnsembleCritic(ContinuousCritic):
@@ -175,6 +181,7 @@ class ContinuousEnsembleCritic(ContinuousCritic):
         This allows to reduce computation when all the estimates are not needed
         (e.g. when updating the policy in TD3).
         """
+        assert False, "Not implemented"
         with th.no_grad():
             features = self.extract_features(obs)
         return self.q_networks[0](th.cat([features, actions], dim=1))
