@@ -9,7 +9,7 @@ import time
 class RoomsEnv(core.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, rows=16, cols=16, empty=False, random_walls=False, discrete=True,
+    def __init__(self, rows=16, cols=16, empty=False, random_walls=False, discrete=True, sink_goal=True,
                  n_redundancies=1, max_repeats=1, goal=None, state=None,
                  goal_in_state=True, max_steps=None,
                  goal_only_visible_in_room=False, seed=None,
@@ -25,6 +25,7 @@ class RoomsEnv(core.Env):
         else:
             self.max_steps = max_steps
 
+        self.sink_goal = sink_goal
         self.goal_in_state = goal_in_state
         self.goal_only_visible_in_room = goal_only_visible_in_room
 
@@ -52,7 +53,7 @@ class RoomsEnv(core.Env):
         else:
             self.rng = np.random.RandomState()
 
-        self.map, self.seed = self._randomize_walls(random=random_walls, empty=empty)
+        self.map, self._seed = self._randomize_walls(random=random_walls, empty=empty)
         self.goal_cell, self.goal = self._random_from_map(goal)
         self.state_cell, self.state = self._random_from_map(state)
         self.pos = self.state_cell.astype(np.float)
@@ -84,14 +85,15 @@ class RoomsEnv(core.Env):
         for _ in range(random.randint(1, self.max_repeats)):
             self._move(action)
             if self.discrete:
-                done = np.all(self.state_cell == self.goal_cell)
+                r = np.all(self.state_cell == self.goal_cell).astype(np.float)
             else:
-                done = np.abs((self.pos - self.goal_cell)).sum() < self.goal_th
+                r = (np.abs((self.pos - self.goal_cell)).sum() < self.goal_th).astype(np.float)
             obs = self._obs_from_state(self.discrete)
-            r = float(done)
 
-            if self.nsteps >= self.max_steps:
+            if self.nsteps >= self.max_steps or (r and self.sink_goal):
                 done = True
+            else:
+                done = False
 
             self.tot_reward += r
             self.nsteps += 1
@@ -193,11 +195,11 @@ class RoomsEnv(core.Env):
             return np.array(obs) / self.scale
 
     def _which_room(self, cell):
-        if cell[0] <= self.seed[0] and cell[1] <= self.seed[1]:
+        if cell[0] <= self._seed[0] and cell[1] <= self._seed[1]:
             return 0
-        elif cell[0] <= self.seed[0] and cell[1] > self.seed[1]:
+        elif cell[0] <= self._seed[0] and cell[1] > self._seed[1]:
             return 1
-        elif cell[0] > self.seed[0] and cell[1] <= self.seed[1]:
+        elif cell[0] > self._seed[0] and cell[1] <= self._seed[1]:
             return 2
         else:
             return 3

@@ -22,6 +22,7 @@ class EnsembleQNetwork(QNetwork):
         normalize_images: bool = True,
         ensemble_size: int = 1,
         temperature: float = 1,
+        soft: bool = True,
     ):
         super(EnsembleQNetwork, self).__init__(
             observation_space,
@@ -35,6 +36,7 @@ class EnsembleQNetwork(QNetwork):
 
         self.ensemble_size = ensemble_size
         self.temperature = temperature
+        self.soft = soft
         action_dim = self.action_space.n  # number of actions
         self.qvec = []
         for e in range(ensemble_size):
@@ -52,14 +54,17 @@ class EnsembleQNetwork(QNetwork):
         x = self.extract_features(obs)
         return th.cat([q(x).unsqueeze(1) for q in self.q_net], dim=1)
 
-    def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
+    def _predict(self, observation: th.Tensor, deterministic: bool = True, sampling_fn: Callable = None) -> th.Tensor:
         q_values = self.forward(observation)
         # Greedy action
-        if deterministic:
-            return q_values.argmax(dim=1).reshape(-1)
-        else:
+        if sampling_fn:
+            action = sampling_fn(q_values)
+        elif self.soft:
             z = q_values / self.temperature
-            return Categorical(logits=z).sample().squeeze(0)
+            action = Categorical(logits=z).sample().squeeze(0)
+        else:
+            action = q_values.argmax(dim=2).reshape(-1)
+        return action
 
 
 class EnsembleDQNPolicy(DQNPolicy):
@@ -77,9 +82,11 @@ class EnsembleDQNPolicy(DQNPolicy):
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         ensemble_size: int = 1,
         temperature: float = 1,
+        soft: bool = True,
     ):
         self.ensemble_size = ensemble_size
         self.temperature = temperature
+        self.soft = soft
         super(EnsembleDQNPolicy, self).__init__(
             observation_space,
             action_space,
@@ -96,7 +103,7 @@ class EnsembleDQNPolicy(DQNPolicy):
     def make_q_net(self) -> QNetwork:
         # Make sure we always have separate networks for features extractors etc
         net_args = self._update_features_extractor(self.net_args, features_extractor=None)
-        return EnsembleQNetwork(**net_args, ensemble_size=self.ensemble_size, temperature=self.temperature).to(
+        return EnsembleQNetwork(**net_args, ensemble_size=self.ensemble_size, temperature=self.temperature, soft=self.soft).to(
             self.device)
 
 
@@ -109,7 +116,7 @@ class EnsembleCnnPolicy(EnsembleDQNPolicy):
         observation_space: gym.spaces.Space,
         action_space: gym.spaces.Space,
         lr_schedule: Callable,
-        net_arch: Optional[List[int]] = [64, 64],
+        net_arch: Optional[List[int]] = [],
         activation_fn: Type[nn.Module] = nn.ReLU,
         features_extractor_class: Type[BaseFeaturesExtractor] = NatureCNN,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
@@ -118,6 +125,7 @@ class EnsembleCnnPolicy(EnsembleDQNPolicy):
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         ensemble_size: int = 1,
         temperature: float = 1,
+        soft: bool = True,
     ):
 
         super(EnsembleCnnPolicy, self).__init__(
@@ -133,6 +141,7 @@ class EnsembleCnnPolicy(EnsembleDQNPolicy):
             optimizer_kwargs,
             ensemble_size,
             temperature,
+            soft,
         )
 
 

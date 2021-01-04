@@ -61,15 +61,18 @@ def train(config):
         d_model = DiscriminationModel(observation_space=disc_obs_space,
                                       action_space=spaces.Discrete(config.ensemble_size),
                                       lr_schedule=lambda x: config.algorithm.policy.learning_rate).to(config.device)
-        discrimination_trainer = DiscriminatorTrainer(discrimination_model=d_model, discrete=config.algorithm.discrete)
+        discrimination_trainer = DiscriminatorTrainer(discrimination_model=d_model,
+                                                      discrete=config.algorithm.discrete,
+                                                      target_update_interval=config.algorithm.policy.target_update_interval)
     else:
         discrimination_trainer = None
 
     model = Algorithm(policy, env, discrimination_trainer=discrimination_trainer, **config.algorithm.policy)
 
     model.learn(**config.algorithm.learn)
-    eval_policy(env, model)
+    print("Finished training. Saving model...")
     model.save(config.env_id)
+    eval_policy(env, model)
 
 
 if __name__ == '__main__':

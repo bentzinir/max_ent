@@ -1,15 +1,19 @@
 env_id: 'rooms-v0'
-algorithm: 'DQN'
+algorithm_type: 'DQN'
 ensemble_size: 4
+is_atari: False
+vec_env_kwargs: 'empty_dict'
 env_kwargs:
-  n_redundancies: 4
+  n_redundancies: 1
   empty: False
+  sink_goal: True
+  max_steps: 150
   fixed_reset: True
   max_repeats: 1
   rows: 10
   cols: 10
   goal: [1, 1]
-  state: [ -2,  -2]
+  state: [ 8,  8]
   horz_wind: [0.0, 0.0]  # (right, left)
   vert_wind: [0.0, 0.0]  # (up, down)
   seed: 0

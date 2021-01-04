@@ -53,6 +53,8 @@ def collect_rollouts(
             self.num_timesteps += 1
             episode_timesteps += 1
             total_steps += 1
+            if self.method == 'state':
+                self.discrimination_trainer.num_timesteps += 1
 
             # Give access to local variables
             callback.update_locals(locals())

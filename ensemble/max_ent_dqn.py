@@ -14,6 +14,7 @@ from ensemble.common.collect_rollout import collect_rollouts
 from ensemble.common.sample_action import sample_action
 from ensemble.common.entropy import HLoss
 from ensemble.common.format_string import format_string
+from torch.distributions.categorical import Categorical
 
 
 class MaxEntDQN(DQN):
@@ -51,10 +52,12 @@ class MaxEntDQN(DQN):
             min_ent_coef: float = 0.001,
             method: str = 'none',
             temperature: float = 1,
+            soft: bool = True,
             ensemble_size: int = 1,
     ):
         policy_kwargs.update({"ensemble_size": ensemble_size,
-                              "temperature": temperature})
+                              "temperature": temperature,
+                              "soft": soft})
 
         self.discrimination_trainer = discrimination_trainer
         self.ent_coef = ent_coef
@@ -65,6 +68,7 @@ class MaxEntDQN(DQN):
         self.target_entropy = target_entropy
         self.method = method
         self.temperature = temperature
+        self.soft = soft
         self.ensemble_size = ensemble_size
 
         super(MaxEntDQN, self).__init__(
@@ -127,8 +131,12 @@ class MaxEntDQN(DQN):
             if self.method == 'state':
                 self.discrimination_trainer.train_step(replay_data, max_grad_norm=self.max_grad_norm)
 
-                next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
+                next_member_logits = self.discrimination_trainer.discrimination_model.q_net_target(
                     replay_data.next_observations)
+
+                m = Categorical(logits=next_member_logits)
+                disc_ent = m.entropy().mean()
+                logger.record("discrimination model/ent", disc_ent.item())
 
                 # Auto adjust ent coefficient by measuring state model entropy
                 ent_coef_loss = None
@@ -137,7 +145,7 @@ class MaxEntDQN(DQN):
                     ent_coef = th.exp(self.log_ent_coef.detach())
                     # clipping entropy coefficient from above
                     ent_coef = th.clamp(ent_coef, self.min_ent_coef, self.max_ent_coef)
-                    ent_coef_loss = - self.log_ent_coef * (self.discrimination_trainer.entropy - self.target_entropy)
+                    ent_coef_loss = - self.log_ent_coef * (disc_ent - self.target_entropy)
 
                 # Optimize entropy coefficient, also called
                 # entropy temperature or alpha in the paper
@@ -153,15 +161,15 @@ class MaxEntDQN(DQN):
                 # Compute the target Q values
                 target_q = self.q_net_target(replay_data.next_observations).view(b, self.ensemble_size, -1)
 
-                # Follow softmax policy
                 next_pi_logits = target_q / self.temperature
-                next_pi = th.nn.Softmax(dim=2)(next_pi_logits)
-                target_q = (next_pi * target_q).sum(-1)
-
+                if self.soft:
+                    # Follow softmax policy
+                    next_pi = th.nn.Softmax(dim=2)(next_pi_logits)
+                    target_q = (next_pi * target_q).sum(-1)
+                else:
+                    target_q, _ = target_q.max(dim=2)
                 # Ensemble Entropy Regularization
                 ent = HLoss()(next_pi_logits, dim=2)
-                one_hot_active_idx = th.nn.functional.one_hot(replay_data.members.squeeze() + 1, self.ensemble_size + 1)
-                child_mask = th.cumsum(one_hot_active_idx, dim=1)[:, :-1]
                 if self.method == 'plain':
                     g = th.zeros_like(target_q)
                 elif self.method == 'entropy':
@@ -184,8 +192,8 @@ class MaxEntDQN(DQN):
                     g = g * w
                 elif self.method == 'state':
                     next_member_logprob = th.nn.LogSoftmax(dim=1)(next_member_logits)
-                    # accumulate penalty from all masters
-                    g = next_member_logprob - next_member_logprob.cumsum(1)
+                    cum_next_member_logprob = next_member_logprob.cumsum(1) - next_member_logprob
+                    g = - cum_next_member_logprob
                     w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
                     g = g * w
                 else:
@@ -222,6 +230,7 @@ class MaxEntDQN(DQN):
 
             # Logging
             logger.record("train/method", self.method, exclude="tensorboard")
+            logger.record("train/soft", self.soft, exclude="tensorboard")
             logger.record("train/entropy", format_string(ent.mean(0).cpu().numpy().tolist()), exclude="tensorboard")
             logger.record("train/ent_coef", format_string(th.tensor(ent_coef).cpu().numpy().tolist()))
             logger.record("train/g", format_string(g.mean(0).cpu().numpy().tolist()), exclude="tensorboard")

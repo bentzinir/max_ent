@@ -16,6 +16,7 @@ from ensemble.common.collect_rollout import collect_rollouts
 from ensemble.common.sample_action import sample_action
 from ensemble.common.buffers import EnsembleReplayBuffer
 from ensemble.common.format_string import format_string
+from stable_baselines3.common.noise import NormalActionNoise
 
 
 class MaxEntSAC(SAC):
@@ -29,10 +30,12 @@ class MaxEntSAC(SAC):
             batch_size: int = 256,
             tau: float = 0.005,
             gamma: float = 0.99,
-            train_freq: int = 1,
-            gradient_steps: int = 1,
+            train_freq: int = 1000,
+            gradient_steps: int = 1000,
             n_episodes_rollout: int = -1,
+            noise_type: Optional[str] = None,
             action_noise: Optional[ActionNoise] = None,
+            noise_std: float = 0.1,
             optimize_memory_usage: bool = False,
             ent_coef: Union[str, float] = "auto",
             target_update_interval: int = 1,
@@ -50,8 +53,14 @@ class MaxEntSAC(SAC):
             discrimination_trainer=None,
             method: str = 'none',
             ensemble_size: int = 1,
+            net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = [300, 400],
     ):
-        policy_kwargs.update({"ensemble_size": ensemble_size})
+        if noise_type == 'normal':
+            n_actions = env.action_space.shape[0]
+            action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=noise_std * np.ones(n_actions))
+
+        policy_kwargs.update({"ensemble_size": ensemble_size,
+                              "net_arch": net_arch})
         self.method = method
         self.ensemble_size = ensemble_size
         self.discrimination_trainer = discrimination_trainer

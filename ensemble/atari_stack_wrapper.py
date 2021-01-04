@@ -12,6 +12,30 @@ import numpy as np
 from gym.spaces import Box
 
 
+class LoopFireResetEnv(gym.Wrapper):
+    def __init__(self, env):
+        """Take action on reset.
+
+        For environments that are fixed until firing."""
+        gym.Wrapper.__init__(self, env)
+        assert env.unwrapped.get_action_meanings()[1] == "FIRE"
+        assert len(env.unwrapped.get_action_meanings()) >= 3
+
+    def reset(self, **kwargs):
+        done = True
+        reset_count = 0
+        while done:
+            reset_count += 1
+            self.env.reset(**kwargs)
+            obs, _, done, _ = self.env.step(1)
+            if reset_count == 10:
+                raise AssertionError
+        return obs
+
+    def step(self, ac):
+        return self.env.step(ac)
+
+
 class AtariTransposeChannels(gym.Wrapper):
     def __init__(self, env: gym.Env):
         """
@@ -80,10 +104,14 @@ class AtariStackWrapper(gym.Wrapper):
         if terminal_on_life_loss:
             env = EpisodicLifeEnv(env)
         if "FIRE" in env.unwrapped.get_action_meanings():
-            env = FireResetEnv(env)
+            # replacing with custom fire reset env
+            # env = FireResetEnv(env)
+            env = LoopFireResetEnv(env)
         env = WarpFrame(env, width=screen_size, height=screen_size)
         if clip_reward:
             env = ClipRewardEnv(env)
+        num_stack = 2
+        assert False, "Please set the num_stack properly"
         env = FrameStack(env, num_stack=num_stack)
         env = AtariTransposeChannels(env)
         super(AtariStackWrapper, self).__init__(env)
