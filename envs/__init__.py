@@ -6,4 +6,3 @@ register(
     max_episode_steps=100000,
     kwargs={}
 )
-

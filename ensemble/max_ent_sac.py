@@ -158,21 +158,16 @@ class MaxEntSAC(SAC):
                 elif self.method == 'entropy':
                     g = - next_log_prob.unsqueeze(2)
                 elif self.method == 'action':
-                    ens_log_prob = log_prob.cumsum(1)  # - log_prob
-                    w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).view(1, self.ensemble_size, 1)
-                    g = - (ens_log_prob * w)
+                    g = - log_prob.cumsum(1)
                 elif self.method == 'next_action':
-                    ens_next_log_prob = next_log_prob.cumsum(1)  # - next_log_prob
-                    w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
-                    g = - (ens_next_log_prob * w).unsqueeze(2)
+                    ens_next_log_prob = next_log_prob.cumsum(1)
+                    g = - ens_next_log_prob.unsqueeze(2)
                 elif self.method == 'state':
                     next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
                         replay_data.next_observations)
                     next_member_logprob = th.nn.LogSoftmax(dim=1)(next_member_logits)
                     # accumulate penalty from all masters
-                    ens_next_s_prob = next_member_logprob.cumsum(1)  # - next_member_logprob
-                    w = (1. / th.arange(1, self.ensemble_size + 1, device=self.device)).unsqueeze(0)
-                    g = - (ens_next_s_prob * w).unsqueeze(2)
+                    g = - next_member_logprob.cumsum(1)
                 else:
                     raise ValueError
 
