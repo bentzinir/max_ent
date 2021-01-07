@@ -56,6 +56,7 @@ class MaxEntSAC(SAC):
             net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = [300, 400],
     ):
         if noise_type == 'normal':
+            print(f"!!!!!!!!!!!!!! Adding Gaussian noise to actions !!!!!!!!!!!!!!")
             n_actions = env.action_space.shape[0]
             action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=noise_std * np.ones(n_actions))
 

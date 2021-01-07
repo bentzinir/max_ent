@@ -12,6 +12,7 @@ from config.config import Config
 import argparse
 from stable_baselines3.common.env_util import make_vec_env
 from ensemble.make_atari_stack_env import make_atari_stack_env
+from common.utils import pretty
 
 
 def eval_policy(env, model):
@@ -86,4 +87,5 @@ if __name__ == '__main__':
     config.algorithm.policy["ensemble_size"] = config.ensemble_size
     config.vec_env_kwargs["ensemble_size"] = config.ensemble_size
     config.algorithm.policy["device"] = config.device
+    pretty(config)
     train(config)
