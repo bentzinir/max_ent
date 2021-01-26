@@ -3,14 +3,14 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 import gym
 import torch as th
 from torch import nn
-
-from stable_baselines3.common.distributions import SquashedDiagGaussianDistribution, StateDependentNoiseDistribution
+import numpy as np
+from stable_baselines3.common.distributions import StateDependentNoiseDistribution, DiagGaussianDistribution
 from stable_baselines3.common.policies import BasePolicy, ContinuousCritic, create_sde_features_extractor, register_policy
 from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
     FlattenExtractor,
-    NatureCNN,
+    MlpExtractor,
     create_mlp,
     get_actor_critic_arch,
 )
@@ -40,6 +40,7 @@ class EnsembleActor(Actor):
         clip_mean: float = 2.0,
         normalize_images: bool = True,
         ensemble_size: int = 1,
+        shared_body: bool = False,
     ):
         super(EnsembleActor, self).__init__(
             observation_space,
@@ -67,8 +68,10 @@ class EnsembleActor(Actor):
         self.latent_pis = []
         self.mus = []
         self.log_stds = []
+        z = create_mlp(features_dim, -1, net_arch, activation_fn)
         for e in range(ensemble_size):
-            z = create_mlp(features_dim, -1, net_arch, activation_fn)
+            if not shared_body:
+                z = create_mlp(features_dim, -1, net_arch, activation_fn)
             self.latent_pis.append(nn.Sequential(*z))
             self.mus.append(nn.Linear(last_layer_dim, action_dim))
             self.log_stds.append(nn.Linear(last_layer_dim, action_dim))
@@ -85,7 +88,6 @@ class EnsembleActor(Actor):
             Mean, standard deviation and optional keyword arguments.
         """
         features = self.extract_features(obs)
-        # latent_pi = th.cat([latent_pi(features).unsqueeze(1) for latent_pi in self.latent_pis], 1)
         latent_pi = [latent_pi(features).unsqueeze(1) for latent_pi in self.latent_pis]
         mean_actions = [mu(latent) for mu, latent in zip(self.mus, latent_pi)]
         mean_actions = th.cat(mean_actions, 1)
@@ -104,20 +106,27 @@ class EnsembleActor(Actor):
 
     def action_log_prob(self, obs: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         mean_actions, log_std, kwargs = self.get_action_dist_params(obs)
-        # return action and associated log prob
-        # z = [self.action_dist.log_prob_from_params(mean_actions[:, e, :], log_std[:, e, :], **kwargs)
-        #      for e in range(self.ensemble_size)]
-        # mean_actions, log_std = zip(*z)
-        # mean_actions = th.stack(mean_actions, dim=1)
-        # log_std = th.stack(log_std, dim=1)
-
         a, s = [], []
         for e in range(self.ensemble_size):
             actions_n_std = self.action_dist.log_prob_from_params(mean_actions[:, e, :], log_std[:, e, :], **kwargs)
             a.append(actions_n_std[0])
             s.append(actions_n_std[1])
-        # return self.action_dist.log_prob_from_params(mean_actions, log_std, **kwargs)
-        return th.stack(a, dim=1), th.stack(s, dim=1)
+        return th.stack(a, dim=1), th.stack(s, dim=1), mean_actions, log_std
+
+    def mixture_p(self, mu, log_std, actions, logp):
+        mixture_p = th.zeros((mu.shape[0], self.ensemble_size), dtype=th.float).to(self.device)
+        for e in range(self.ensemble_size):
+            for j in range(self.ensemble_size):
+                if j == e:
+                    logp_e_j = logp[:, e]
+                else:
+                    self.action_dist.proba_distribution(mu[:, j, :], log_std[:, j, :])
+                    logp_e_j = self.action_dist.log_prob(actions[:, e, :])
+                    if th.isnan(logp_e_j).any():
+                        print(f"Nan")
+                logp_e_j = th.clamp(logp_e_j, np.log(1e-10), 40)
+                mixture_p[:, e] += th.exp(logp_e_j)
+        return mixture_p
 
 
 class ContinuousEnsembleCritic(ContinuousCritic):
@@ -208,8 +217,12 @@ class EnsembleSACPolicy(SACPolicy):
         n_critics: int = 2,
         share_features_extractor: bool = True,
         ensemble_size: int = 1,
+        shared_critic: bool = False,
+        shared_body: bool = False,
     ):
         self.ensemble_size = ensemble_size
+        self.shared_critic = shared_critic
+        self.shared_body = shared_body
         super(EnsembleSACPolicy, self).__init__(
             observation_space,
             action_space,
@@ -232,11 +245,15 @@ class EnsembleSACPolicy(SACPolicy):
 
     def make_actor(self, features_extractor: Optional[BaseFeaturesExtractor] = None) -> EnsembleActor:
         actor_kwargs = self._update_features_extractor(self.actor_kwargs, features_extractor)
-        return EnsembleActor(**actor_kwargs, ensemble_size=self.ensemble_size).to(self.device)
+        return EnsembleActor(**actor_kwargs, ensemble_size=self.ensemble_size, shared_body=self.shared_body).to(self.device)
 
-    def make_critic(self, features_extractor: Optional[BaseFeaturesExtractor] = None) -> ContinuousEnsembleCritic:
+    def make_critic(self, features_extractor: Optional[BaseFeaturesExtractor] = None) ->\
+            Union[ContinuousCritic, ContinuousEnsembleCritic]:
         critic_kwargs = self._update_features_extractor(self.critic_kwargs, features_extractor)
-        return ContinuousEnsembleCritic(**critic_kwargs, ensemble_size=self.ensemble_size).to(self.device)
+        if self.shared_critic:
+            return ContinuousCritic(**critic_kwargs).to(self.device)
+        else:
+            return ContinuousEnsembleCritic(**critic_kwargs, ensemble_size=self.ensemble_size).to(self.device)
 
 
 EnsembleMlpPolicy = EnsembleSACPolicy

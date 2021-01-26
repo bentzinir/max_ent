@@ -53,7 +53,10 @@ class MaxEntSAC(SAC):
             discrimination_trainer=None,
             method: str = 'none',
             ensemble_size: int = 1,
+            shared_critic: bool = False,
+            shared_body: bool = False,
             net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = [300, 400],
+            wandb: bool = True,
     ):
         if noise_type == 'normal':
             print(f"!!!!!!!!!!!!!! Adding Gaussian noise to actions !!!!!!!!!!!!!!")
@@ -61,9 +64,13 @@ class MaxEntSAC(SAC):
             action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=noise_std * np.ones(n_actions))
 
         policy_kwargs.update({"ensemble_size": ensemble_size,
-                              "net_arch": net_arch})
+                              "net_arch": net_arch,
+                              "shared_critic": shared_critic,
+                              "shared_body": shared_body})
+        self.wandb = wandb
         self.method = method
         self.ensemble_size = ensemble_size
+        self.shared_critic = shared_critic
         self.discrimination_trainer = discrimination_trainer
         super(MaxEntSAC, self).__init__(
             policy,
@@ -139,7 +146,7 @@ class MaxEntSAC(SAC):
                 self.actor.reset_noise()
 
             # Action by the current actor for the sampled state
-            actions_pi, log_prob = self.actor.action_log_prob(replay_data.observations)
+            actions_pi, log_prob, _, _ = self.actor.action_log_prob(replay_data.observations)
             log_prob = log_prob.reshape(-1, self.ensemble_size, 1)
 
             if self.ent_coef_optimizer is not None:
@@ -149,10 +156,10 @@ class MaxEntSAC(SAC):
 
             with th.no_grad():
                 # Select action according to policy
-                next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
+                next_actions, next_log_prob, next_mu, next_log_std = self.actor.action_log_prob(replay_data.next_observations)
                 # Compute the target Q value: min over all critics targets
-                targets = self.critic_target(replay_data.next_observations, next_actions)
-                target_q, _ = th.min(targets, dim=2, keepdim=True)
+                targets = self._get_qvalues(replay_data.next_observations, next_actions, self.critic_target)
+                target_q, _ = th.min(targets, dim=-1, keepdim=True)
                 # add entropy term
                 if self.method == 'plain':
                     g = th.zeros_like(target_q)
@@ -160,15 +167,18 @@ class MaxEntSAC(SAC):
                     g = - next_log_prob.unsqueeze(2)
                 elif self.method == 'action':
                     g = - log_prob.cumsum(1)
-                elif self.method == 'next_action':
+                elif self.method == 'next-action':
                     ens_next_log_prob = next_log_prob.cumsum(1)
                     g = - ens_next_log_prob.unsqueeze(2)
-                elif self.method == 'state':
-                    next_member_logits = self.discrimination_trainer.discrimination_model.q_net(
-                        replay_data.next_observations)
-                    next_member_logprob = th.nn.LogSoftmax(dim=1)(next_member_logits)
-                    # accumulate penalty from all masters
-                    g = - next_member_logprob.cumsum(1)
+                elif self.method == 'mixture':
+                    mixp = self.actor.mixture_p(next_mu, next_log_std, next_actions, next_log_prob)
+                    mean_logp = th.log(mixp / self.ensemble_size)
+                    g = - mean_logp.mean(1, keepdims=True).repeat(1, self.ensemble_size).unsqueeze(2)
+                elif self.method == 'semi-mixture':
+                    mixp = self.actor.mixture_p(next_mu, next_log_std, next_actions, next_log_prob)
+                    mean_logp = th.log(mixp / self.ensemble_size)
+                    semi_logp_cumsum = mean_logp.cumsum(1)
+                    g = - semi_logp_cumsum.unsqueeze(2)
                 else:
                     raise ValueError
 
@@ -195,8 +205,8 @@ class MaxEntSAC(SAC):
             # Compute actor loss
             # Alternative: actor_loss = th.mean(log_prob - qf1_pi)
             # Mean over all critic networks
-            q_values_pi = self.critic(replay_data.observations, actions_pi)
-            min_qf_pi, _ = th.min(q_values_pi, dim=2, keepdim=True)
+            q_values_pi = self._get_qvalues(replay_data.observations, actions_pi, self.critic)
+            min_qf_pi, _ = th.min(q_values_pi, dim=-1, keepdim=True)
             actor_loss_vec = (ent_coef * log_prob - min_qf_pi).mean(0).squeeze(1)
             actor_loss = actor_loss_vec.mean()
             actor_losses.append(actor_loss.item())
@@ -232,6 +242,16 @@ class MaxEntSAC(SAC):
         logger.record("train/actor_loss", format_string(actor_loss_vec.cpu().detach().numpy()))
         logger.record("train/critic_loss", format_string(critic_loss_vec.cpu().detach().numpy()))
         logger.record("train/g", format_string(g.mean(0).cpu().numpy()), exclude="tensorboard")
+
+    def _get_qvalues(self, obs, action, module):
+        if not self.shared_critic:
+            return module(obs, action)
+        else:
+            targets = []
+            for e in range(self.ensemble_size):
+                targets_e = module(obs, action[:, e, :])
+                targets.append(th.stack(targets_e, dim=2))
+            return th.cat(targets, dim=1).mean(1)
 
     def _setup_model(self) -> None:
         super(SAC, self)._setup_model()

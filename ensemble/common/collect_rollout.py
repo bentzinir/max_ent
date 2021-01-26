@@ -9,6 +9,7 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Rollout
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common import logger
 from ensemble.common.format_string import format_string
+import wandb
 
 
 def collect_rollouts(
@@ -119,6 +120,14 @@ def collect_rollouts(
                           exclude="tensorboard")
             logger.record("train/member_hist", format_string(h.tolist()), exclude="tensorboard")
             logger.record("train/ID", self.env.unwrapped.envs[0].spec.id, exclude="tensorboard")
+
+            # wandb logging
+            if self.wandb:
+                wandb.log({"timesteps": self.num_timesteps})
+                for e in range(self.ensemble_size):
+                    reward_e = np.nanmean(env.reward_queues[e])
+                    wandb.log({f"reward_{e}": reward_e})
+
     mean_reward = np.mean(episode_rewards) if total_episodes > 0 else 0.0
 
     callback.on_rollout_end()

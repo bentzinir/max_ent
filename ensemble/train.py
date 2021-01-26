@@ -12,7 +12,8 @@ from config.config import Config
 import argparse
 from stable_baselines3.common.env_util import make_vec_env
 from ensemble.make_atari_stack_env import make_atari_stack_env
-from common.utils import pretty
+from ensemble.common.format_string import pretty
+import wandb
 
 
 def eval_policy(env, model):
@@ -71,9 +72,26 @@ def train(config):
     model = Algorithm(policy, env, discrimination_trainer=discrimination_trainer, **config.algorithm.policy)
 
     model.learn(**config.algorithm.learn)
-    print("Finished training. Saving model...")
-    model.save(config.env_id)
-    eval_policy(env, model)
+    print("Finished training...")
+    if config.save_model:
+        print("Saving model...")
+        model.save(config.env_id)
+    if config.play_model:
+        eval_policy(env, model)
+
+
+def bcast_config_vals(config):
+    algorithm_config = Config(config.algorithm_type)
+    config.merge({"algorithm": algorithm_config}, override=False)
+    config.algorithm.buffer["ensemble_size"] = config.ensemble_size
+    config.algorithm.policy["ensemble_size"] = config.ensemble_size
+    config.algorithm.learn.total_timesteps = config.total_timesteps
+    config.vec_env_kwargs["ensemble_size"] = config.ensemble_size
+    config.vec_env_kwargs["step_mixture"] = config.step_mixture
+    config.algorithm.policy["device"] = config.device
+    config.algorithm.policy.method = config.method
+    config.algorithm.policy.wandb = config.wandb
+    return config
 
 
 if __name__ == '__main__':
@@ -81,11 +99,9 @@ if __name__ == '__main__':
     parser.add_argument("--f", type=str, default="none")
     args, extra_args = parser.parse_known_args()
     config = get_config(args.f)
-    algorithm_config = Config(config.algorithm_type)
-    config.merge({"algorithm": algorithm_config}, override=False)
-    config.algorithm.buffer["ensemble_size"] = config.ensemble_size
-    config.algorithm.policy["ensemble_size"] = config.ensemble_size
-    config.vec_env_kwargs["ensemble_size"] = config.ensemble_size
-    config.algorithm.policy["device"] = config.device
-    pretty(config)
+    config = bcast_config_vals(config)
+    if config.wandb:
+        run = wandb.init(config=config)
+    else:
+        pretty(config)
     train(config)

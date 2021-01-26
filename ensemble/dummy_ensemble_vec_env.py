@@ -13,10 +13,12 @@ from collections import deque
 
 class DummyEnsembleVecEnv(DummyVecEnv):
     def __init__(self, env_fns: List[Callable[[], gym.Env]], ensemble_size: int = 1,
+                 step_mixture: bool = False,
                  prioritized_ensemble: bool = False):
         super(DummyEnsembleVecEnv, self).__init__(env_fns)
         self.ensemble_size = ensemble_size
         self.member = random.choice(range(ensemble_size))
+        self.step_mixture = step_mixture
         self.reward_queues = [deque(maxlen=50) for _ in range(self.ensemble_size)]
         self.eplen_queues = [deque(maxlen=50) for _ in range(self.ensemble_size)]
         self.cumulative_reward = 0
@@ -29,6 +31,8 @@ class DummyEnsembleVecEnv(DummyVecEnv):
 
     def step_wait(self) -> VecEnvStepReturn:
         for env_idx in range(self.num_envs):
+            if self.step_mixture:
+                self.member = self.draw_member()
             obs, self.buf_rews[env_idx], self.buf_dones[env_idx], self.buf_infos[env_idx] = self.envs[env_idx].step(
                 self.actions[env_idx][self.member]
             )
