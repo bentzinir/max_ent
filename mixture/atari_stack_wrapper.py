@@ -110,8 +110,8 @@ class AtariStackWrapper(gym.Wrapper):
         env = WarpFrame(env, width=screen_size, height=screen_size)
         if clip_reward:
             env = ClipRewardEnv(env)
-        num_stack = 2
-        assert False, "Please set the num_stack properly"
+        # num_stack = 2
+        # assert False, "Please set the num_stack properly"
         env = FrameStack(env, num_stack=num_stack)
         env = AtariTransposeChannels(env)
         super(AtariStackWrapper, self).__init__(env)
