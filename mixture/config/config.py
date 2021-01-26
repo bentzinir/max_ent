@@ -7,11 +7,10 @@ import GPUtil
 
 class Config(dict):
     def __init__(self, name='default', d=None, add_device=True):
-        root_path = 'config'
         if d:
             self._load_from_dict(d)
         else:
-            path = os.path.join('', root_path, f'{name}.yaml')
+            path = os.path.join('', f'{name}.yaml')
             self._load_config(path)
         if add_device:
             if torch.cuda.is_available():

@@ -1,7 +1,7 @@
 discrete: True
 
 policy:
-  learning_rate: 0000625
+  learning_rate: 0.000625
   gamma: 0.99
   buffer_size: 100000
   learning_starts: 20000

@@ -2,7 +2,7 @@ from stable_baselines3.common import logger
 import torch
 import numpy as np
 from collections import deque
-from ensemble.common.format_string import format_string
+from common.format_string import format_string
 from stable_baselines3.common.utils import polyak_update
 
 

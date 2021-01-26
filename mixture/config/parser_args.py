@@ -1,7 +1,7 @@
 import argparse
 import numpy as np
 import torch
-from config.config import Config
+from mixture.config.config import Config
 import ast
 from deepmerge import always_merger
 import copy

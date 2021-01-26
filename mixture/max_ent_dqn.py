@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch as th
@@ -9,11 +9,10 @@ from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.dqn.policies import DQNPolicy
 from stable_baselines3.dqn import DQN
 import types
-from ensemble.common.buffers import EnsembleReplayBuffer
-from ensemble.common.collect_rollout import collect_rollouts
-from ensemble.common.sample_action import sample_action
-from ensemble.common.entropy import HLoss
-from ensemble.common.format_string import format_string
+from mixture.utils.buffers import EnsembleReplayBuffer
+from mixture.utils.collect_rollouts import collect_rollouts
+from mixture.utils.sample_action import sample_action
+from common.format_string import format_string
 from torch.distributions.categorical import Categorical
 
 
@@ -169,7 +168,6 @@ class MaxEntDQN(DQN):
                 else:
                     target_q, _ = target_q.max(dim=2)
                 # Ensemble Entropy Regularization
-                ent = HLoss()(next_pi_logits, dim=2)
                 if self.method == 'plain':
                     g = th.zeros_like(target_q)
                 elif self.method == 'entropy':

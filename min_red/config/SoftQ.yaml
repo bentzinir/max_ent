@@ -1,0 +1,30 @@
+discrete: True
+
+policy:
+  learning_rate: 0.000625
+  gamma: 0.99  # 0.9
+  buffer_size: 100000  # 50000
+  learning_starts: 20000
+  batch_size: 64
+  temperature: 0.01
+  soft: False
+  exploration_initial_eps: 0.05
+  exploration_final_eps: 0.01
+  target_update_interval: 8000  # 1000
+  tau: 1
+  policy_kwargs: 'empty_dict'
+  verbose: 1
+
+  method: None
+  importance_sampling: False
+  absolute_threshold: True
+  ent_coef: 0.01
+
+buffer:
+  prioritized_ensemble: True
+
+learn:
+  total_timesteps: 70000
+  log_interval: 10
+
+

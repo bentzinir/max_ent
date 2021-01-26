@@ -9,7 +9,7 @@ class ActionModelTrainer:
 
     :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
     """
-    def __init__(self, action_model, cat_dim, lr, discrete):
+    def __init__(self, action_model, lr, discrete, cat_dim=1):
         self.action_model = action_model
         self.optimizer = torch.optim.Adam(self.action_model.parameters(), lr=lr)
         self.cat_dim = cat_dim

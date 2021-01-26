@@ -3,7 +3,7 @@ from stable_baselines3.common.env_util import make_vec_env
 import gym
 
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
-from ensemble.atari_stack_wrapper import AtariStackWrapper
+from mixture.atari_stack_wrapper import AtariStackWrapper
 
 
 def make_atari_stack_env(

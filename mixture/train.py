@@ -1,19 +1,20 @@
 import gym
 import envs
-import ensemble.dqn.policies
-import ensemble.sac.policies
+import mixture.dqn.policies
+import mixture.sac.policies
 import numpy as np
 import time
-from ensemble.dummy_ensemble_vec_env import DummyEnsembleVecEnv
-from ensemble.discriminator_trainer import DiscriminatorTrainer
+from mixture.dummy_ensemble_vec_env import DummyEnsembleVecEnv
+from mixture.discriminator_trainer import DiscriminatorTrainer
 from gym import spaces
-from config.parser_args import get_config
-from config.config import Config
+from mixture.config.parser_args import get_config
+from mixture.config.config import Config
 import argparse
 from stable_baselines3.common.env_util import make_vec_env
-from ensemble.make_atari_stack_env import make_atari_stack_env
-from ensemble.common.format_string import pretty
+from mixture.make_atari_stack_env import make_atari_stack_env
+from common.format_string import pretty
 import wandb
+import os
 
 
 def eval_policy(env, model):
@@ -44,12 +45,12 @@ def train(config):
 
     obs_shape = list(env.observation_space.shape)
     if config.algorithm.discrete:
-        from ensemble.max_ent_dqn import MaxEntDQN as Algorithm
+        from mixture.max_ent_dqn import MaxEntDQN as Algorithm
         from stable_baselines3.dqn.policies import CnnPolicy as DiscriminationModel
         disc_obs_shape = (obs_shape[2], *obs_shape[:2])
         policy = 'EnsembleCnnPolicy'
     else:
-        from ensemble.max_ent_sac import MaxEntSAC as Algorithm
+        from mixture.max_ent_sac import MaxEntSAC as Algorithm
         from stable_baselines3.dqn.policies import MlpPolicy as DiscriminationModel
         disc_obs_shape = obs_shape
         policy = 'EnsembleMlpPolicy'
@@ -81,7 +82,7 @@ def train(config):
 
 
 def bcast_config_vals(config):
-    algorithm_config = Config(config.algorithm_type)
+    algorithm_config = Config(os.path.join(config.config_path, config.algorithm_type))
     config.merge({"algorithm": algorithm_config}, override=False)
     config.algorithm.buffer["ensemble_size"] = config.ensemble_size
     config.algorithm.policy["ensemble_size"] = config.ensemble_size

@@ -8,6 +8,8 @@ from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.dqn.policies import DQNPolicy
 from stable_baselines3.dqn import DQN
 from stable_baselines3.common.distributions import Categorical
+from min_red.utils.collect_rollouts import collect_rollouts
+from min_red.utils.buffers import ISReplayBuffer
 
 
 class MaxEntDQN(DQN):
@@ -38,9 +40,13 @@ class MaxEntDQN(DQN):
             device: Union[th.device, str] = "auto",
             _init_setup_model: bool = True,
             action_trainer=None,
+            soft: bool = False,
             ent_coef=0.1,
             method='none',
+            importance_sampling: bool = False,
+            absolute_threshold: bool = True,
             temperature=1,
+            wandb: bool = True,
     ):
 
         super(MaxEntDQN, self).__init__(
@@ -70,23 +76,41 @@ class MaxEntDQN(DQN):
             _init_setup_model,
         )
 
-        def soft_predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
+        def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
             q_values = self.forward(observation)
             # Greedy action
-            if deterministic:
-                action = q_values.argmax(dim=1).reshape(-1)
-            else:
+            if soft:
                 pi = th.nn.Softmax(dim=1)(q_values / temperature)
                 action = Categorical(probs=pi).sample()
+            else:
+                pi = q_values
+                action = q_values.argmax(dim=1).reshape(-1)
+            self._last_pi = pi[0][action[0]]
             return action
 
-        # replace self.q_net._predict with soft_predict for this object only
-        self.q_net._predict = types.MethodType(soft_predict, self.q_net)
-
+        self.wandb = wandb
         self.action_trainer = action_trainer
         self.ent_coef = ent_coef
         self.method = method
+        self.importance_sampling = importance_sampling
+        self.absolute_threshold = absolute_threshold
         self.temperature = temperature
+
+        # override collect_rollout method for this object only
+        self.collect_rollouts = types.MethodType(collect_rollouts, self)
+
+        # override qnet_predict method for this object only
+        self.q_net._predict = types.MethodType(_predict, self.q_net)
+        self.q_net._last_pi = 1
+
+        # override replay buffer
+        self.replay_buffer = ISReplayBuffer(
+            self.buffer_size,
+            self.observation_space,
+            self.action_space,
+            self.device,
+            optimize_memory_usage=self.optimize_memory_usage,
+        )
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Update learning rate according to schedule
@@ -123,7 +147,11 @@ class MaxEntDQN(DQN):
             a_prime_mask = 1 - a_mask
             pi_a = th.sum(a_mask * pi, dim=1, keepdim=True)
             pa_a = th.sum(a_mask * action_model_probs, dim=1, keepdim=True)
-            active_actions = (action_model_probs > 1e-2).float()
+            if self.absolute_threshold:
+                thresh = 1e-2
+            else:
+                thresh = pa_a.repeat(1, self.env.action_space.n)
+            active_actions = (action_model_probs >= thresh).float()
             pi_a_prime = th.sum(active_actions * a_prime_mask * pi, dim=1, keepdim=True)
             n_primes = th.mean(th.sum(active_actions * a_prime_mask, dim=1))
             logger.record("action model/n_primes", n_primes.item(), exclude="tensorboard")
@@ -133,17 +161,15 @@ class MaxEntDQN(DQN):
                     g = 0.0
                 elif self.method == 'action':
                     g = - th.log(pi_a + 1e-2)
-                elif self.method == 'next_det':
+                elif self.method == 'deterministic':
                     g = - th.log(pi_a + pi_a_prime + 1e-2)
-                elif self.method == 'next_det_nir':
-                    g = - pi_a * th.log(pi_a + pi_a_prime + 1e-2)
-                elif self.method == 'next_abs':
-                    g = th.abs(th.clamp(th.div(pa_a, pi_a + 1e-2), min=0.2, max=5) - 1)
-                elif self.method == 'next_log':
-                    g = th.log(th.clamp(th.div(pa_a, pi_a + 1e-2), min=0.2, max=5))
+                    g = g
+                elif self.method == 'stochastic':
+                    g = th.log(pa_a + 1e-2) - th.log(pi_a + 1e-2)
                 else:
                     raise ValueError
-
+                if self.importance_sampling:
+                    g = g * (pi_a / replay_data.pi)
             # Retrieve the q-values for the actions from the replay buffer
             current_q = th.gather(current_q, dim=1, index=replay_data.actions.long())
 

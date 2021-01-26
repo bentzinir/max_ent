@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import numpy as np
 import torch as th
@@ -6,16 +6,16 @@ from torch.nn import functional as F
 
 from stable_baselines3.common import logger
 from stable_baselines3.common.noise import ActionNoise
-from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
+from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.common.utils import polyak_update
 from stable_baselines3.sac.policies import SACPolicy
 
 from stable_baselines3.sac import SAC
 import types
-from ensemble.common.collect_rollout import collect_rollouts
-from ensemble.common.sample_action import sample_action
-from ensemble.common.buffers import EnsembleReplayBuffer
-from ensemble.common.format_string import format_string
+from mixture.utils.collect_rollouts import collect_rollouts
+from mixture.utils.sample_action import sample_action
+from mixture.utils.buffers import EnsembleReplayBuffer
+from common.format_string import format_string
 from stable_baselines3.common.noise import NormalActionNoise
 
 
