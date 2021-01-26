@@ -161,7 +161,7 @@ class MaxEntDQN(DQN):
                     g = 0.0
                 elif self.method == 'action':
                     g = - th.log(pi_a + 1e-2)
-                elif self.method == 'deterministic':
+                elif self.method == 'eta':
                     g = - th.log(pi_a + pi_a_prime + 1e-2)
                     g = g
                 elif self.method == 'stochastic':
