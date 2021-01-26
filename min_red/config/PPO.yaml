@@ -1,0 +1,24 @@
+discrete: True
+off_policy: False
+
+policy:
+  learning_rate: 0.0003
+  n_steps: 2048  # 100
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: None
+  vf_coef: 0.5
+  policy_kwargs: 'empty_dict'
+  verbose: 1
+  method: None
+  absolute_threshold: True
+  ent_coef: 0.01
+
+learn:
+  total_timesteps: 70000
+  log_interval: 10
+
+

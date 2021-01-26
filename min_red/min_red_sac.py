@@ -12,7 +12,7 @@ from stable_baselines3.sac.policies import SACPolicy
 from stable_baselines3.sac import SAC
 
 
-class MaxEntSAC(SAC):
+class MinRedSAC(SAC):
     def __init__(
         self,
         policy: Union[str, Type[SACPolicy]],
@@ -47,7 +47,7 @@ class MaxEntSAC(SAC):
         exploration_final_eps=0
     ):
 
-        super(MaxEntSAC, self).__init__(
+        super(MinRedSAC, self).__init__(
             policy,
             env,
             learning_rate,

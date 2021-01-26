@@ -9,9 +9,8 @@ class ActionModelTrainer:
 
     :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
     """
-    def __init__(self, action_model, lr, discrete, cat_dim=1):
+    def __init__(self, action_model, discrete, cat_dim=1):
         self.action_model = action_model
-        self.optimizer = torch.optim.Adam(self.action_model.parameters(), lr=lr)
         self.cat_dim = cat_dim
         self.discrete = discrete
 
@@ -25,21 +24,19 @@ class ActionModelTrainer:
         x = torch.cat((batch.observations, batch.next_observations), dim=self.cat_dim).float()
         # we use the "q_net" output to get action probabilities
         predicted = self.action_model.q_net(x)
-        action_probs = torch.softmax(predicted, dim=-1)
-        loss = torch.nn.CrossEntropyLoss()(action_probs, batch.actions.view(-1))
-        m = Categorical(action_probs)
+        loss = torch.nn.CrossEntropyLoss()(predicted, batch.actions.view(-1))
 
         # Optimize the action model
-        self.optimizer.zero_grad()
+        self.action_model.optimizer.zero_grad()
         loss.backward()
         # Clip gradient norm
         torch.nn.utils.clip_grad_norm_(self.action_model.parameters(), max_grad_norm)
-        self.optimizer.step()
-        acc = ((action_probs.argmax(dim=1) == batch.actions[:, 0])).float().mean().item()
+        self.action_model.optimizer.step()
+        acc = (predicted.argmax(dim=1) == batch.actions[:, 0]).float().mean().item()
         logger.record("action model/loss", loss.item())
         logger.record("action model/accuracy", acc)
-        logger.record("action model/entropy", torch.mean(m.entropy()).item())
-        logger.record("action model/hist", torch.histc(batch.actions.float(), bins=action_probs.shape[1]).tolist())
+        # logger.record("action model/entropy", torch.mean(m.entropy()).item())
+        logger.record("action model/hist", torch.histc(batch.actions.float(), bins=predicted.shape[1]).tolist())
 
     def train_step_continuous(self, batch):
         # 1. build s,s'=f(s,a) distribution function

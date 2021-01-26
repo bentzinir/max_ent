@@ -12,7 +12,7 @@ from min_red.utils.collect_rollouts import collect_rollouts
 from min_red.utils.buffers import ISReplayBuffer
 
 
-class MaxEntDQN(DQN):
+class MinRedDQN(DQN):
     def __init__(
             self,
             policy: Union[str, Type[DQNPolicy]],
@@ -49,7 +49,7 @@ class MaxEntDQN(DQN):
             wandb: bool = True,
     ):
 
-        super(MaxEntDQN, self).__init__(
+        super(MinRedDQN, self).__init__(
             policy,
             env,
             learning_rate,
@@ -157,15 +157,16 @@ class MaxEntDQN(DQN):
             logger.record("action model/n_primes", n_primes.item(), exclude="tensorboard")
             logger.record("action model/method", self.method, exclude="tensorboard")
             with th.no_grad():
+                eps = 1e-4
                 if self.method == 'none':
                     g = 0.0
                 elif self.method == 'action':
-                    g = - th.log(pi_a + 1e-2)
+                    g = - th.log(pi_a + eps)
                 elif self.method == 'eta':
-                    g = - th.log(pi_a + pi_a_prime + 1e-2)
+                    g = - th.log(pi_a + pi_a_prime + eps)
                     g = g
                 elif self.method == 'stochastic':
-                    g = th.log(pa_a + 1e-2) - th.log(pi_a + 1e-2)
+                    g = th.log(pa_a + eps) - th.log(pi_a + eps)
                 else:
                     raise ValueError
                 if self.importance_sampling:

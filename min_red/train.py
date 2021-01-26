@@ -43,12 +43,15 @@ def train(config):
     obs_shape = list(env.observation_space.shape)
 
     if config.algorithm.discrete:
-        from min_red.min_red_dqn import MaxEntDQN as Algorithm
+        if config.algorithm.off_policy:
+            from min_red.min_red_dqn import MinRedDQN as Algorithm
+        else:
+            from min_red.min_red_ppo import MinRedPPO as Algorithm
         from stable_baselines3.dqn.policies import CnnPolicy as ActionModel
         ssprime_shape = (2 * obs_shape[2], *obs_shape[:2])
         policy = 'CnnPolicy'
     else:
-        from min_red.min_red_sac import MaxEntSAC as Algorithm
+        from min_red.min_red_sac import MinRedSAC as Algorithm
         # from stable_baselines3.sac import MlpPolicy as Model
         from continuous_action_model import DiagGaussianPolicy as ActionModel
         ssprime_shape = (2*obs_shape[0],)
@@ -65,8 +68,7 @@ def train(config):
                                lr_schedule=lambda x: config.algorithm.policy.learning_rate).to(config.device)
 
     action_trainer = ActionModelTrainer(action_model=action_model,
-                                        discrete=config.algorithm.discrete,
-                                        lr=config.algorithm.policy.learning_rate)
+                                        discrete=config.algorithm.discrete)
 
     model = Algorithm(policy, env, action_trainer=action_trainer, **config.algorithm.policy)
 

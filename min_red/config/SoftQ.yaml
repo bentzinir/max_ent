@@ -1,4 +1,5 @@
 discrete: True
+off_policy: True
 
 policy:
   learning_rate: 0.000625
