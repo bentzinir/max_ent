@@ -199,7 +199,8 @@ class MinRedPPO(PPO):
                 # train action model
                 replay_data = self.replay_buffer.sample(self.batch_size, env=self._vec_normalize_env)
 
-                self.action_trainer.train_step(replay_data, max_grad_norm=None)
+                if self.method not in ['none', 'action']:
+                    self.action_trainer.train_step(replay_data, max_grad_norm=None)
 
             all_kl_divs.append(np.mean(approx_kl_divs))
 
