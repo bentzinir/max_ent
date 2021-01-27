@@ -12,7 +12,7 @@ class RoomsEnv(core.Env):
     def __init__(self, rows=16, cols=16, empty=False, random_walls=False, discrete=True, sink_goal=True,
                  n_redundancies=1, max_repeats=1, goal=None, state=None,
                  goal_in_state=True, max_steps=None,
-                 goal_only_visible_in_room=False, seed=None,
+                 goal_only_visible_in_room=False, seed=None, vis=False,
                  fixed_reset=False, vert_wind=(0, 0), horz_wind=(0, 0)):
         '''
         vert_wind = (up, down)
@@ -66,6 +66,7 @@ class RoomsEnv(core.Env):
 
         self.tot_reward = 0
         self.viewer = None
+        self.vis = vis
 
     def reset(self):
         if self.fixed_reset:
@@ -102,6 +103,9 @@ class RoomsEnv(core.Env):
             if done:
                 info['episode'] = {'r': self.tot_reward, 'l': self.nsteps}
                 break
+            if self.vis:
+                self.render()
+
         return obs, r, done, info
 
     def _move(self, action, discrete=None):

@@ -10,6 +10,7 @@ from stable_baselines3.dqn import DQN
 from stable_baselines3.common.distributions import Categorical
 from min_red.utils.collect_rollouts import collect_rollouts
 from min_red.utils.buffers import ISReplayBuffer
+from min_red.min_red_regularization import min_red_th
 
 
 class MinRedDQN(DQN):
@@ -122,7 +123,7 @@ class MinRedDQN(DQN):
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
             # train action model
-            self.action_trainer.train_step(replay_data, max_grad_norm=self.max_grad_norm)
+            self.action_trainer.train_step(replay_data, max_grad_norm=None)
 
             with th.no_grad():
                 # Compute the target Q values
@@ -139,38 +140,19 @@ class MinRedDQN(DQN):
             current_q = self.q_net(replay_data.observations)
 
             # Entropy & Action Uniqueness regularization
-            x = th.cat((replay_data.observations, replay_data.next_observations), dim=self.action_trainer.cat_dim).float()
-            action_model_logits = self.action_trainer.action_model.q_net(x)
-            action_model_probs = th.nn.Softmax(dim=1)(action_model_logits)
-            pi = th.nn.Softmax(dim=1)(current_q / self.temperature)
-            a_mask = F.one_hot(th.squeeze(replay_data.actions), self.env.action_space.n).float()
-            a_prime_mask = 1 - a_mask
-            pi_a = th.sum(a_mask * pi, dim=1, keepdim=True)
-            pa_a = th.sum(a_mask * action_model_probs, dim=1, keepdim=True)
-            if self.absolute_threshold:
-                thresh = 1e-2
-            else:
-                thresh = pa_a.repeat(1, self.env.action_space.n)
-            active_actions = (action_model_probs >= thresh).float()
-            pi_a_prime = th.sum(active_actions * a_prime_mask * pi, dim=1, keepdim=True)
-            n_primes = th.mean(th.sum(active_actions * a_prime_mask, dim=1))
-            logger.record("action model/n_primes", n_primes.item(), exclude="tensorboard")
-            logger.record("action model/method", self.method, exclude="tensorboard")
             with th.no_grad():
-                eps = 1e-4
-                if self.method == 'none':
-                    g = 0.0
-                elif self.method == 'action':
-                    g = - th.log(pi_a + eps)
-                elif self.method == 'eta':
-                    g = - th.log(pi_a + pi_a_prime + eps)
-                    g = g
-                elif self.method == 'stochastic':
-                    g = th.log(pa_a + eps) - th.log(pi_a + eps)
-                else:
-                    raise ValueError
-                if self.importance_sampling:
-                    g = g * (pi_a / replay_data.pi)
+                pi = th.nn.Softmax(dim=1)(current_q / self.temperature)
+                g = min_red_th(
+                        obs=replay_data.observations,
+                        next_obs=replay_data.next_observations,
+                        actions=replay_data.actions,
+                        pi=pi,
+                        method=self.method,
+                        importance_sampling=self.importance_sampling,
+                        absolute_threshold=self.absolute_threshold,
+                        cat_dim=self.action_trainer.cat_dim,
+                        action_module=self.action_trainer.action_model.q_net)
+
             # Retrieve the q-values for the actions from the replay buffer
             current_q = th.gather(current_q, dim=1, index=replay_data.actions.long())
 

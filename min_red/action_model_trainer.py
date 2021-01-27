@@ -13,8 +13,10 @@ class ActionModelTrainer:
         self.action_model = action_model
         self.cat_dim = cat_dim
         self.discrete = discrete
+        self.nupdates = 0
 
     def train_step(self, batch, **kwargs):
+        self.nupdates += 1
         if self.discrete:
             self.train_step_discrete(batch, **kwargs)
         else:
@@ -25,18 +27,20 @@ class ActionModelTrainer:
         # we use the "q_net" output to get action probabilities
         predicted = self.action_model.q_net(x)
         loss = torch.nn.CrossEntropyLoss()(predicted, batch.actions.view(-1))
-
+        m = Categorical(logits=predicted)
         # Optimize the action model
         self.action_model.optimizer.zero_grad()
         loss.backward()
         # Clip gradient norm
-        torch.nn.utils.clip_grad_norm_(self.action_model.parameters(), max_grad_norm)
+        if max_grad_norm:
+            torch.nn.utils.clip_grad_norm_(self.action_model.parameters(), max_grad_norm)
         self.action_model.optimizer.step()
         acc = (predicted.argmax(dim=1) == batch.actions[:, 0]).float().mean().item()
-        logger.record("action model/loss", loss.item())
-        logger.record("action model/accuracy", acc)
-        # logger.record("action model/entropy", torch.mean(m.entropy()).item())
-        logger.record("action model/hist", torch.histc(batch.actions.float(), bins=predicted.shape[1]).tolist())
+        logger.record("action model/a_loss", loss.item())
+        logger.record("action model/a_accuracy", acc)
+        logger.record("action model/a_entropy", torch.mean(m.entropy()).item())
+        logger.record("action model/a_hist", torch.histc(batch.actions.float(), bins=predicted.shape[1]).tolist())
+        logger.record("action model/a_n_updates", self.nupdates)
 
     def train_step_continuous(self, batch):
         # 1. build s,s'=f(s,a) distribution function
