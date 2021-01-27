@@ -3,7 +3,7 @@ import envs
 import numpy as np
 import time
 from stable_baselines3.common.vec_env import DummyVecEnv
-from action_model_trainer import ActionModelTrainer
+from min_red.action_model_trainer import ActionModelTrainer
 from mixture.config.parser_args import get_config
 from mixture.config.config import Config
 import argparse
