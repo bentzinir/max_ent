@@ -313,7 +313,7 @@ class MinRedPPO(PPO):
             cat_dim=self.action_trainer.cat_dim,
             action_module=self.action_trainer.action_model.q_net)
 
-        min_red_reg = self.min_red_ent_coef * g.numpy()
+        min_red_reg = self.min_red_ent_coef * g.cpu().numpy()
         # concatenate zero in last place
         min_red_reg = np.concatenate([min_red_reg, np.zeros((1, 1))])
         rollout_buffer.rewards += min_red_reg
