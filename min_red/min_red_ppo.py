@@ -298,7 +298,7 @@ class MinRedPPO(PPO):
         obs = th.Tensor(rollout_buffer.observations[:-1].squeeze(1))
         next_obs = th.Tensor(rollout_buffer.observations[1:].squeeze(1))
         acts = th.as_tensor(rollout_buffer.actions[:-1].squeeze(2), dtype=th.int64)
-        pis = th.Tensor(np.exp(np.concatenate(logit_vec))[:-1])
+        pis = th.exp(th.cat(logit_vec))[:-1]
         dns = rollout_buffer.dones[:-1]
         rwrds = rollout_buffer.rewards[:-1]
 
