@@ -45,7 +45,6 @@ def min_red_th(obs, next_obs, actions, pi, method, importance_sampling, absolute
             g = - th.log(pi_a + eps)
         elif method == 'eta':
             g = - th.log(pi_a + pi_a_prime + eps)
-            g = g
         elif method == 'stochastic':
             g = th.log(pa_a + eps) - th.log(pi_a + eps)
         else:

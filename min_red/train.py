@@ -2,7 +2,7 @@ import gym
 import envs
 import numpy as np
 import time
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from min_red.action_model_trainer import ActionModelTrainer
 from mixture.config.parser_args import get_config
 from mixture.config.config import Config
@@ -37,7 +37,7 @@ def train(config):
         make_env = make_atari_stack_env
     else:
         make_env = make_vec_env
-    env = make_env(config.env_id, n_envs=1, seed=0, vec_env_cls=DummyVecEnv,
+    env = make_env(config.env_id, n_envs=config.n_envs, seed=0, vec_env_cls=SubprocVecEnv,
                    vec_env_kwargs=config.vec_env_kwargs, env_kwargs=config.env_kwargs)
 
     obs_shape = list(env.observation_space.shape)
