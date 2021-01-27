@@ -37,7 +37,7 @@ def min_red_th(obs, next_obs, actions, pi, method, importance_sampling, absolute
     with th.no_grad():
         eps = 1e-4
         if method == 'Nill':
-            g = 0.0
+            g = th.zeros_like(pi_a)
         elif method == 'action':
             g = - th.log(pi_a + eps)
         elif method == 'eta':
