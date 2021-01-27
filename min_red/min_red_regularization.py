@@ -36,7 +36,7 @@ def min_red_th(obs, next_obs, actions, pi, method, importance_sampling, absolute
     logger.record("action model/method", method, exclude="tensorboard")
     with th.no_grad():
         eps = 1e-4
-        if method == 'none':
+        if method == 'Nill':
             g = 0.0
         elif method == 'action':
             g = - th.log(pi_a + eps)
