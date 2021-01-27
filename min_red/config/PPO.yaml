@@ -20,7 +20,7 @@ policy:
   buffer_size: 50000  # for action model
 
 learn:
-  total_timesteps: 70000
+  total_timesteps: None
   log_interval: 10
 
 
