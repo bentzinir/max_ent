@@ -17,6 +17,9 @@ def min_red_th(obs, next_obs, actions, pi, method, importance_sampling, absolute
     :param action_module:
     :return:
     '''
+    if method == 'Nill':
+        return th.zeros_like(actions, dtype=th.float)
+
     n_actions = pi.shape[1]
     x = th.cat((obs, next_obs), dim=cat_dim).float()
     action_model_logits = action_module(x)
