@@ -295,10 +295,10 @@ class MinRedPPO(PPO):
             _, values, _ = self.policy.forward(obs_tensor)
 
         # MinRed Regularization
-        obs = th.Tensor(rollout_buffer.observations[:-1].squeeze(1))
-        next_obs = th.Tensor(rollout_buffer.observations[1:].squeeze(1))
-        acts = th.as_tensor(rollout_buffer.actions[:-1].squeeze(2), dtype=th.int64)
-        pis = th.exp(th.cat(logit_vec))[:-1]
+        obs = th.Tensor(rollout_buffer.observations[:-1].squeeze(1)).to(self.device)
+        next_obs = th.Tensor(rollout_buffer.observations[1:].squeeze(1)).to(self.device)
+        acts = th.as_tensor(rollout_buffer.actions[:-1].squeeze(2), dtype=th.int64).to(self.device)
+        pis = th.exp(th.cat(logit_vec))[:-1].to(self.device)
         dns = rollout_buffer.dones[:-1]
         rwrds = rollout_buffer.rewards[:-1]
 
