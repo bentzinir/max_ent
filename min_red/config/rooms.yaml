@@ -15,7 +15,7 @@ env_kwargs:
   n_redundancies: 1
   max_repeats: 3
   vis: False
-n_envs: 1
+n_envs: 2
 vec_env_kwargs: 'empty_dict'
 is_atari: False
 play_model: False
