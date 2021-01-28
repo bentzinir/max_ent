@@ -67,6 +67,7 @@ class RoomsEnv(core.Env):
         self.tot_reward = 0
         self.viewer = None
         self.vis = vis
+        self.occupancy_image = None
 
     def reset(self):
         if self.fixed_reset:
@@ -104,7 +105,8 @@ class RoomsEnv(core.Env):
                 info['episode'] = {'r': self.tot_reward, 'l': self.nsteps}
                 break
             if self.vis:
-                self.render()
+                self.update(obs)
+                self.render(img=self.occupancy_image.astype(np.uint8))
 
         return obs, r, done, info
 
@@ -113,6 +115,12 @@ class RoomsEnv(core.Env):
             return self._move_discrete(action)
         else:
             return self._move_continuous(action)
+
+    def update(self, image_t):
+        if self.occupancy_image is None:
+            self.occupancy_image = image_t
+        else:
+            self.occupancy_image = np.clip(self.occupancy_image.astype(np.int) + image_t, 0, 255)
 
     def _move_discrete(self, action):
         wind_u = np.random.binomial(n=1, p=self.vert_wind[0])
@@ -238,13 +246,14 @@ class RoomsEnv(core.Env):
 
         return map, seed
 
-    def render(self, mode='human'):
-        img = self._obs_from_state(True)
+    def render(self, mode='human', img=None):
+        if img is None:
+            img = self._obs_from_state(True)
         if mode == 'rgb_array':
             return img
         elif mode == 'human':
-            from gym.envs.classic_control import rendering
             if self.viewer is None:
+                from gym.envs.classic_control import rendering
                 self.viewer = rendering.SimpleImageViewer()
             self.viewer.imshow(img)
             return self.viewer.isopen
