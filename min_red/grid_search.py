@@ -22,6 +22,6 @@ for trials in range(n_repeats):
                        f" --total_timesteps {total_timesteps}" \
                        f" --env_kwargs.n_redundancies {n_redundancies} " \
                        f" --algorithm.policy.n_steps {n_steps} " \
-                       f" --wandb False & "
+                       f" --wandb True & "
             print(cmd_line)
             os.system(cmd_line)
