@@ -298,20 +298,19 @@ class MinRedPPO(PPO):
             _, values, _ = self.policy.forward(obs_tensor)
 
         # MinRed Regularization
-        obs = th.Tensor(rollout_buffer.observations[:-1])
-        next_obs = th.Tensor(rollout_buffer.observations[1:])
-        acts = th.as_tensor(rollout_buffer.actions[:-1], dtype=th.int64)
-        pis = th.exp(th.stack(logit_vec, axis=0))[:-1]
+        obs = th.from_numpy(rollout_buffer.observations).to(self.device)
+        acts = th.from_numpy(rollout_buffer.actions.astype(np.int64)).to(self.device)
+        pis = th.exp(th.stack(logit_vec, axis=0)).to(self.device)
         dns = rollout_buffer.dones[:-1]
         rwrds = rollout_buffer.rewards[:-1]
 
         # reshape before feeding to min_red_regularization
         b, e, c, h, w = obs.shape
         g = min_red_th(
-            obs=obs.view(b*e, c, h, w).to(self.device),
-            next_obs=next_obs.view(b*e, c, h, w).to(self.device),
-            actions=acts.view(b*e, 1).to(self.device),
-            pi=pis.view(b*e, -1).to(self.device),
+            obs=obs.view(b*e, c, h, w).to(self.device)[:-1],
+            next_obs=obs.view(b*e, c, h, w).to(self.device)[1:],
+            actions=acts.view(b*e, 1).to(self.device)[:-1],
+            pi=pis.view(b*e, -1).to(self.device)[:-1],
             method=self.method,
             importance_sampling=False,
             absolute_threshold=self.absolute_threshold,
