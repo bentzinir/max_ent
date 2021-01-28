@@ -130,8 +130,7 @@ def collect_rollouts(
 
             # wandb logging
             if self.wandb:
-                wandb.log({"timesteps": self.num_timesteps})
-                wandb.log({f"reward": mean_reward})
+                wandb.log({f"reward": mean_reward}, step=self.num_timesteps)
 
     mean_reward = np.mean(episode_rewards) if total_episodes > 0 else 0.0
 
