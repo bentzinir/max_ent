@@ -3,10 +3,10 @@ envs = ['rooms-v0']
 config_name = 'rooms'
 alg = 'PPO'
 methods = ['action', 'eta']
-n_repeats = 2
+n_repeats = 5
 abs_thresh = True
 total_timesteps = 100000
-log_interval = 1  # (episodes)
+log_interval = 10  # (episodes)
 n_redundancies = 30
 n_steps = 100
 
