@@ -17,10 +17,14 @@ def min_red_th(obs, next_obs, actions, pi, method, importance_sampling, absolute
     :param action_module:
     :return:
     '''
+
+    n_actions = pi.shape[1]
+    logger.record("action model/method", method, exclude="tensorboard")
+    logger.record("action model/a_hist", th.histc(actions.float(), bins=n_actions).tolist())
+
     if method == 'Nill':
         return th.zeros_like(actions, dtype=th.float)
 
-    n_actions = pi.shape[1]
     x = th.cat((obs, next_obs), dim=cat_dim).float()
     action_model_logits = action_module(x)
     action_model_probs = th.nn.Softmax(dim=1)(action_model_logits)
@@ -36,7 +40,6 @@ def min_red_th(obs, next_obs, actions, pi, method, importance_sampling, absolute
     pi_a_prime = th.sum(active_actions * a_prime_mask * pi, dim=1, keepdim=True)
     n_primes = th.mean(th.sum(active_actions * a_prime_mask, dim=1))
     logger.record("action model/n_primes", n_primes.item(), exclude="tensorboard")
-    logger.record("action model/method", method, exclude="tensorboard")
     with th.no_grad():
         eps = 1e-4
         if method == 'Nill':

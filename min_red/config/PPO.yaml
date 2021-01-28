@@ -15,8 +15,8 @@ policy:
   verbose: 1
   method: None
   absolute_threshold: True
-  ent_coef: 0.001
-  min_red_ent_coef: 0.001
+  ent_coef: 0.01
+  min_red_ent_coef: 0.01
   buffer_size: 50000  # for action model
 
 learn:
