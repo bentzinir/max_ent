@@ -298,27 +298,35 @@ class MinRedPPO(PPO):
             _, values, _ = self.policy.forward(obs_tensor)
 
         # MinRed Regularization
-        obs = th.Tensor(rollout_buffer.observations[:-1].squeeze(1)).to(self.device)
-        next_obs = th.Tensor(rollout_buffer.observations[1:].squeeze(1)).to(self.device)
-        acts = th.as_tensor(rollout_buffer.actions[:-1].squeeze(2), dtype=th.int64).to(self.device)
-        pis = th.exp(th.cat(logit_vec))[:-1].to(self.device)
-        dns = rollout_buffer.dones[:-1]
-        rwrds = rollout_buffer.rewards[:-1]
+        th_obs = th.from_numpy(rollout_buffer.observations).to(self.device)
+        th_actions = th.from_numpy(rollout_buffer.actions.astype(np.int64)).to(self.device)
+        th_pis = th.exp(th.stack(logit_vec, axis=0)).to(self.device)
+        th_dones = th.from_numpy(rollout_buffer.dones).to(self.device)
 
+        # Cut last example
+        _th_obs = th_obs[:-1]
+        _th_next_obs = th_obs[1:]
+        _th_actions = th_actions[:-1]
+        _th_pis = th_pis[:-1]
+        _th_dones = th_dones[:-1]
+
+        # reshape before feeding to min_red_regularization
+        b, e, c, h, w = _th_obs.shape
         g = min_red_th(
-            obs=obs,
-            next_obs=next_obs,
-            actions=acts,
-            pi=pis,
+            obs=_th_obs.view(b*e, c, h, w).to(self.device),
+            next_obs=_th_next_obs.view(b*e, c, h, w).to(self.device),
+            actions=_th_actions.view(b*e, 1).to(self.device),
+            pi=_th_pis.view(b*e, -1).to(self.device),
+            dones=_th_dones.view(b*e, 1).to(self.device),
             method=self.method,
             importance_sampling=False,
             absolute_threshold=self.absolute_threshold,
             cat_dim=self.action_trainer.cat_dim,
             action_module=self.action_trainer.action_model.q_net)
 
-        min_red_reg = self.min_red_ent_coef * g.cpu().numpy()
+        min_red_reg = self.min_red_ent_coef * g.view(b, e).cpu().numpy()
         # concatenate zero in last place
-        min_red_reg = np.concatenate([min_red_reg, np.zeros((1, 1))])
+        min_red_reg = np.concatenate([min_red_reg, np.zeros((1, e))])
         rollout_buffer.rewards += min_red_reg
 
         rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
