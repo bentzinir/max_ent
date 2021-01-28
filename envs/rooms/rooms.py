@@ -68,7 +68,7 @@ class RoomsEnv(core.Env):
         self.tot_reward = 0
         self.viewer = None
         self.vis = vis
-        self.state_image = None
+        self.occupancy_image = None
 
     def reset(self):
         if self.fixed_reset:
@@ -107,7 +107,7 @@ class RoomsEnv(core.Env):
                 break
             if self.vis:
                 self.update(obs)
-                self.render(img=self.state_image.astype(np.uint8))
+                self.render(img=self.occupancy_image.astype(np.uint8))
 
         return obs, r, done, info
 
@@ -118,10 +118,10 @@ class RoomsEnv(core.Env):
             return self._move_continuous(action)
 
     def update(self, image_t):
-        if self.state_image is None:
-            self.state_image = image_t
+        if self.occupancy_image is None:
+            self.occupancy_image = image_t
         else:
-            self.state_image = np.clip(self.state_image.astype(np.int) + image_t, 0, 255)
+            self.occupancy_image = np.clip(self.occupancy_image.astype(np.int) + image_t, 0, 255)
 
     def _move_discrete(self, action):
         wind_u = np.random.binomial(n=1, p=self.vert_wind[0])
