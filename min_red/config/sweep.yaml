@@ -1,0 +1,50 @@
+name: sweep_min_red_all
+program: train.py
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - "--adaptive_scaling"
+  - ${args}
+method: grid
+parameters:
+  load_path:
+    value: 20.1
+  run_name:
+    value: run_0
+  env:
+    values:
+      - hopper-random-v0
+      - hopper-medium-v0
+      - hopper-medium-expert-v0
+      - hopper-expert-v0
+      - walker2d-random-v0
+      - walker2d-medium-v0
+      - walker2d-medium-expert-v0
+      - walker2d-expert-v0
+      - halfcheetah-random-v0
+      - halfcheetah-medium-v0
+      - halfcheetah-medium-expert-v0
+      - halfcheetah-expert-v0
+  algo:
+    value: dual_sac
+  observation_space:
+    value: latent
+  horizon:
+    value: 5
+  buffer_size:
+    value: 300000
+  total_timesteps:
+    value: 1000000
+  coeff_next_recon_metric:
+    value: 1
+  coeff_reward_metric:
+    value: 0
+  proximity_metric_coeff:
+    value: 1
+  uncertainty_metric_coeff:
+    value: 1
+  coeff_next_recon_std:
+    value: 0
+  coeff_reward_std:
+    value: 0
