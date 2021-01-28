@@ -300,19 +300,26 @@ class MinRedPPO(PPO):
             _, values, _ = self.policy.forward(obs_tensor)
 
         # MinRed Regularization
-        obs = th.from_numpy(rollout_buffer.observations).to(self.device)
-        acts = th.from_numpy(rollout_buffer.actions.astype(np.int64)).to(self.device)
-        pis = th.exp(th.stack(logit_vec, axis=0)).to(self.device)
-        dns = rollout_buffer.dones[:-1]
-        rwrds = rollout_buffer.rewards[:-1]
+        th_obs = th.from_numpy(rollout_buffer.observations).to(self.device)
+        th_actions = th.from_numpy(rollout_buffer.actions.astype(np.int64)).to(self.device)
+        th_pis = th.exp(th.stack(logit_vec, axis=0)).to(self.device)
+        th_dones = th.from_numpy(rollout_buffer.dones).to(self.device)
+
+        # Cut last example
+        _th_obs = th_obs[:-1]
+        _th_next_obs = th_obs[1:]
+        _th_actions = th_actions[:-1]
+        _th_pis = th_pis[:-1]
+        _th_dones = th_dones[:-1]
 
         # reshape before feeding to min_red_regularization
-        b, e, c, h, w = obs.shape
+        b, e, c, h, w = _th_obs.shape
         g = min_red_th(
-            obs=obs.view(b*e, c, h, w).to(self.device)[:-1],
-            next_obs=obs.view(b*e, c, h, w).to(self.device)[1:],
-            actions=acts.view(b*e, 1).to(self.device)[:-1],
-            pi=pis.view(b*e, -1).to(self.device)[:-1],
+            obs=_th_obs.view(b*e, c, h, w).to(self.device),
+            next_obs=_th_next_obs.view(b*e, c, h, w).to(self.device),
+            actions=_th_actions.view(b*e, 1).to(self.device),
+            pi=_th_pis.view(b*e, -1).to(self.device),
+            dones=_th_dones.view(b*e, 1).to(self.device),
             method=self.method,
             importance_sampling=False,
             absolute_threshold=self.absolute_threshold,
