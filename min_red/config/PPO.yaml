@@ -18,7 +18,7 @@ policy:
 
 
   learning_rate: 0.0003
-  n_steps: 2048  # 100
+  n_steps: 1024  # 100
   batch_size: 64
   n_epochs: 10
   gamma: 0.99
