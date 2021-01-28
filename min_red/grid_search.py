@@ -2,7 +2,7 @@ import os
 envs = ['rooms-v0']
 config_name = 'rooms'
 alg = 'PPO'
-methods = ['action', 'eta']
+methods = ['eta']
 n_repeats = 5
 abs_thresh = True
 total_timesteps = 200000
