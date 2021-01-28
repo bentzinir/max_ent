@@ -16,6 +16,8 @@ from stable_baselines3.common.vec_env import VecEnv
 from min_red.min_red_regularization import min_red_th
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.utils import explained_variance
+import wandb
+from stable_baselines3.common.utils import safe_mean
 
 
 class MinRedPPO(PPO):
@@ -329,4 +331,8 @@ class MinRedPPO(PPO):
 
         callback.on_rollout_end()
 
+        # wandb logging
+        if self.wandb:
+            wandb.log({"reward": safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer])}, step=self.num_timesteps)
+            wandb.log({"ep_len": safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer])}, step=self.num_timesteps)
         return True
