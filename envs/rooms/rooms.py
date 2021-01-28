@@ -4,7 +4,6 @@ import random
 import cv2
 from tqdm import tqdm
 import time
-from gym.envs.classic_control import rendering
 
 
 class RoomsEnv(core.Env):
@@ -254,6 +253,7 @@ class RoomsEnv(core.Env):
             return img
         elif mode == 'human':
             if self.viewer is None:
+                from gym.envs.classic_control import rendering
                 self.viewer = rendering.SimpleImageViewer()
             self.viewer.imshow(img)
             return self.viewer.isopen
