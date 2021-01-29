@@ -102,7 +102,7 @@ class MinRedDQN(DQN):
 
         # override qnet_predict method for this object only
         self.q_net._predict = types.MethodType(_predict, self.q_net)
-        self.q_net._last_pi = 1
+        self.q_net._last_pi = th.Tensor(1)
 
         # override replay buffer
         self.replay_buffer = ISReplayBuffer(

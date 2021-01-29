@@ -93,7 +93,7 @@ def collect_rollouts(
                     # Avoid changing the original ones
                     self._last_original_obs, new_obs_, reward_ = self._last_obs, new_obs, reward
 
-                replay_buffer.add(self._last_original_obs, new_obs_, buffer_action, reward_, done, self.q_net._last_pi)
+                replay_buffer.add(self._last_original_obs, new_obs_, buffer_action, reward_, done, self.q_net._last_pi.cpu())
 
             self._last_obs = new_obs
             # Save the unnormalized observation
