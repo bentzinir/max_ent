@@ -15,17 +15,13 @@ policy:
   tau: 1
   policy_kwargs: 'empty_dict'
   verbose: 1
-
   method: None
   importance_sampling: False
   absolute_threshold: True
   ent_coef: 0.01
 
-buffer:
-  prioritized_ensemble: True
-
 learn:
-  total_timesteps: 70000
+  total_timesteps: None
   log_interval: 10
 
 
