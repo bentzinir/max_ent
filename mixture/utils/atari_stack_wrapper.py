@@ -10,6 +10,7 @@ except ImportError:
 from gym.wrappers.frame_stack import FrameStack
 import numpy as np
 from gym.spaces import Box
+from min_red.utils.macro_action_wrapper import MacroActionWrapper
 
 
 class LoopFireResetEnv(gym.Wrapper):
@@ -43,8 +44,6 @@ class AtariTransposeChannels(gym.Wrapper):
         :param env: the environment to wrap
         """
         gym.Wrapper.__init__(self, env)
-
-        num_stack, h, w, c = self.observation_space.shape
 
         low = self.observation_space.low.swapaxes(0, 3).squeeze(axis=0)
         high = self.observation_space.high.swapaxes(0, 3).squeeze(axis=0)
@@ -92,6 +91,8 @@ class AtariStackWrapper(gym.Wrapper):
     def __init__(
         self,
         env: gym.Env,
+        macro_length: int = 1,
+        vis: bool = False,
         noop_max: int = 30,
         frame_skip: int = 4,
         screen_size: int = 84,
@@ -114,4 +115,5 @@ class AtariStackWrapper(gym.Wrapper):
         # assert False, "Please set the num_stack properly"
         env = FrameStack(env, num_stack=num_stack)
         env = AtariTransposeChannels(env)
+        env = MacroActionWrapper(env, macro_length=macro_length, vis=vis)
         super(AtariStackWrapper, self).__init__(env)

@@ -5,6 +5,8 @@ algorithm_type: 'PPO'
 total_timesteps: 5000000
 env_kwargs: 'empty_dict'
 n_envs: 10
+vis: False
+macro_length: 1
 vec_env_kwargs: 'empty_dict'
 is_atari: True
 play_model: False

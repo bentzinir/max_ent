@@ -104,10 +104,8 @@ class RoomsEnv(core.Env):
             if done:
                 info['episode'] = {'r': self.tot_reward, 'l': self.nsteps}
                 break
-            if self.vis:
-                self.update(obs)
-                self.render(img=self.occupancy_image.astype(np.uint8))
 
+            self.update(obs)
         return obs, r, done, info
 
     def _move(self, action, discrete=None):
@@ -246,9 +244,14 @@ class RoomsEnv(core.Env):
 
         return map, seed
 
-    def render(self, mode='human', img=None):
-        if img is None:
+    def render(self, mode='human'):
+        if self.occupancy_image is None:
             img = self._obs_from_state(True)
+        else:
+            img = self.occupancy_image.astype(np.uint8)
+        us_pos = (self.state_cell[0] * self.im_size / self.rows,
+                  self.state_cell[1] * self.im_size / self.cols)
+        img[int(us_pos[0])][int(us_pos[1])] = [100, 100, 100]
         if mode == 'rgb_array':
             return img
         elif mode == 'human':

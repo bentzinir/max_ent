@@ -11,7 +11,7 @@ from mixture.config.parser_args import get_config
 from mixture.config.config import Config
 import argparse
 from stable_baselines3.common.env_util import make_vec_env
-from mixture.make_atari_stack_env import make_atari_stack_env
+from mixture.utils.make_atari_stack_env import make_atari_stack_env
 from common.format_string import pretty
 import wandb
 import os

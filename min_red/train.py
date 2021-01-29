@@ -7,8 +7,8 @@ from min_red.action_model_trainer import ActionModelTrainer
 from mixture.config.parser_args import get_config
 from mixture.config.config import Config
 import argparse
-from stable_baselines3.common.env_util import make_vec_env
-from mixture.make_atari_stack_env import make_atari_stack_env
+from mixture.utils.make_atari_stack_env import make_atari_stack_env
+from min_red.utils.make_macro_action_env import make_macro_action_env
 from common.format_string import pretty
 import wandb
 import os
@@ -36,14 +36,17 @@ def train(config):
     if config.is_atari:
         make_env = make_atari_stack_env
     else:
-        make_env = make_vec_env
+        make_env = make_macro_action_env
     if config.algorithm.off_policy:
         vec_env = DummyVecEnv
         config.n_envs = 1
     else:
         vec_env = SubprocVecEnv
     env = make_env(config.env_id, n_envs=config.n_envs, seed=0, vec_env_cls=vec_env,
-                   vec_env_kwargs=config.vec_env_kwargs, env_kwargs=config.env_kwargs)
+                   wrapper_kwargs={'macro_length': config.macro_length,
+                                   'vis': config.vis},
+                   vec_env_kwargs=config.vec_env_kwargs,
+                   env_kwargs=config.env_kwargs)
 
     obs_shape = list(env.observation_space.shape)
 
