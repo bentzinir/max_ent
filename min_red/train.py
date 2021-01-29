@@ -37,7 +37,12 @@ def train(config):
         make_env = make_atari_stack_env
     else:
         make_env = make_vec_env
-    env = make_env(config.env_id, n_envs=config.n_envs, seed=0, vec_env_cls=SubprocVecEnv,
+    if config.algorithm.off_policy:
+        vec_env = DummyVecEnv
+        config.n_envs = 1
+    else:
+        vec_env = SubprocVecEnv
+    env = make_env(config.env_id, n_envs=config.n_envs, seed=0, vec_env_cls=vec_env,
                    vec_env_kwargs=config.vec_env_kwargs, env_kwargs=config.env_kwargs)
 
     obs_shape = list(env.observation_space.shape)

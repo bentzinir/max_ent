@@ -3,12 +3,13 @@ from torch.nn import functional as F
 from stable_baselines3.common import logger
 
 
-def min_red_th(obs, next_obs, actions, pi, dones, method, importance_sampling, absolute_threshold, cat_dim, action_module):
+def min_red_th(obs, next_obs, actions, pi, pi_0, dones, method, importance_sampling, absolute_threshold, cat_dim, action_module):
     '''
     :param obs: B x C x H x W
     :param next_obs: B x C x H x W
     :param actions: B x 1
     :param pi: B X |A|
+    :param pi_0: B X |A|
     :param dones: B X 1
     :param method: str
     :param importance_sampling: bool
@@ -53,7 +54,7 @@ def min_red_th(obs, next_obs, actions, pi, dones, method, importance_sampling, a
         else:
             raise ValueError
         if importance_sampling:
-            g = g * (pi_a / pi)
+            g = g * (pi_a / pi_0)
         # Mask with done
         g = g * (1 - dones)
         logger.record("train/g", g.mean().item())

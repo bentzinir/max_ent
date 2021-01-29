@@ -147,6 +147,8 @@ class MinRedDQN(DQN):
                         next_obs=replay_data.next_observations,
                         actions=replay_data.actions,
                         pi=pi,
+                        pi_0=replay_data.pi,
+                        dones=replay_data.dones,
                         method=self.method,
                         importance_sampling=self.importance_sampling,
                         absolute_threshold=self.absolute_threshold,
