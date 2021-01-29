@@ -319,6 +319,7 @@ class MinRedPPO(PPO):
             next_obs=_th_next_obs.view(b*e, c, h, w).to(self.device),
             actions=_th_actions.view(b*e, 1).to(self.device),
             pi=_th_pis.view(b*e, -1).to(self.device),
+            pi_0=None,
             dones=_th_dones.view(b*e, 1).to(self.device),
             method=self.method,
             importance_sampling=False,
