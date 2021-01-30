@@ -1,0 +1,23 @@
+discrete: True
+off_policy: True
+
+policy:
+  learning_rate: 0.000625
+  gamma: 0.99  # 0.9
+  buffer_size: 100000  # 50000
+  learning_starts: 20000
+  batch_size: 64
+  exploration_initial_eps: 0.05
+  exploration_final_eps: 0.01
+  target_update_interval: 8000  # 1000
+  tau: 1
+  policy_kwargs: 'empty_dict'
+  verbose: 1
+  method: None
+  absolute_threshold: True
+
+learn:
+  total_timesteps: None
+  log_interval: 10
+
+

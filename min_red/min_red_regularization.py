@@ -3,6 +3,23 @@ from torch.nn import functional as F
 from stable_baselines3.common import logger
 
 
+def action_probs(obs, next_obs, action_module, cat_dim=1):
+    x = th.cat((obs, next_obs), dim=cat_dim).float()
+    action_model_logits = action_module(x)
+    return th.nn.Softmax(dim=1)(action_model_logits)
+
+
+def active_mask(actions, action_model_probs, threshold=1e-2):
+    n_actions = action_model_probs.shape[1]
+    a_mask = F.one_hot(th.squeeze(actions), n_actions).float()
+    pa_a = th.sum(a_mask * action_model_probs, dim=1, keepdim=True)
+    if not threshold:
+        # use relative threshold : thresh = p(a|s,s')
+        thresh = pa_a.repeat(1, n_actions)
+    active_actions = (action_model_probs >= thresh).float()
+    return active_actions
+
+
 def min_red_th(obs, next_obs, actions, pi, pi_0, dones, method, importance_sampling, absolute_threshold, cat_dim, action_module):
     '''
     :param obs: B x C x H x W
@@ -26,9 +43,7 @@ def min_red_th(obs, next_obs, actions, pi, pi_0, dones, method, importance_sampl
     if method == 'Nill':
         return th.zeros_like(actions, dtype=th.float)
 
-    x = th.cat((obs, next_obs), dim=cat_dim).float()
-    action_model_logits = action_module(x)
-    action_model_probs = th.nn.Softmax(dim=1)(action_model_logits)
+    action_model_probs = action_probs(obs, next_obs, action_module, cat_dim)
     a_mask = F.one_hot(th.squeeze(actions), n_actions).float()
     a_prime_mask = 1 - a_mask
     pi_a = th.sum(a_mask * pi, dim=1, keepdim=True)

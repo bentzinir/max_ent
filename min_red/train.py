@@ -52,7 +52,10 @@ def train(config):
 
     if config.algorithm.discrete:
         if config.algorithm.off_policy:
-            from min_red.min_red_dqn import MinRedDQN as Algorithm
+            if config.algorithm_type == 'GroupedQ':
+                from min_red.grouped_dqn import GroupedDQN as Algorithm
+            else:
+                from min_red.min_red_dqn import MinRedDQN as Algorithm
         else:
             from min_red.min_red_ppo import MinRedPPO as Algorithm
         from stable_baselines3.dqn.policies import CnnPolicy as ActionModel
