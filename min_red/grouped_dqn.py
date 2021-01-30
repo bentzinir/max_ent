@@ -89,7 +89,8 @@ class GroupedDQN(DQN):
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
             # train action model
-            self.action_trainer.train_step(replay_data, max_grad_norm=None)
+            if self.method:
+                self.action_trainer.train_step(replay_data, max_grad_norm=None)
 
             n_actions = self.env.action_space.n
 
