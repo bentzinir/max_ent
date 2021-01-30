@@ -9,14 +9,19 @@ def action_probs(obs, next_obs, action_module, cat_dim=1):
     return th.nn.Softmax(dim=1)(action_model_logits)
 
 
-def active_mask(actions, action_model_probs, threshold=1e-2):
+def active_mask(actions, action_model_probs, threshold):
     n_actions = action_model_probs.shape[1]
     a_mask = F.one_hot(th.squeeze(actions), n_actions).float()
     pa_a = th.sum(a_mask * action_model_probs, dim=1, keepdim=True)
-    if not threshold:
+    if threshold is None:
         # use relative threshold : thresh = p(a|s,s')
-        thresh = pa_a.repeat(1, n_actions)
-    active_actions = (action_model_probs >= thresh).float()
+        threshold = pa_a.repeat(1, n_actions)
+    active_actions = (action_model_probs >= threshold).float()
+    if isinstance(threshold, float):
+        mean_th = threshold
+    else:
+        mean_th = threshold.mean().item()
+    logger.record("action model/threshold", mean_th, exclude="tensorboard")
     return active_actions
 
 

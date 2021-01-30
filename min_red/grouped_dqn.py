@@ -38,12 +38,8 @@ class GroupedDQN(DQN):
             device: Union[th.device, str] = "auto",
             _init_setup_model: bool = True,
             action_trainer=None,
-            # soft: bool = False,
-            # ent_coef=0.1,
             method: bool = False,
-            # importance_sampling: bool = False,
-            absolute_threshold: bool = True,
-            # temperature=1,
+            threshold: Union[None, float] = None,
             wandb: bool = True,
     ):
 
@@ -77,7 +73,7 @@ class GroupedDQN(DQN):
         self.wandb = wandb
         self.method = method
         self.action_trainer = action_trainer
-        self.absolute_threshold = absolute_threshold
+        self.threshold = threshold
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Update learning rate according to schedule
@@ -103,7 +99,7 @@ class GroupedDQN(DQN):
 
                 active_action_mask = active_mask(actions=replay_data.actions,
                                                  action_model_probs=action_model_probs,
-                                                 threshold=self.absolute_threshold)
+                                                 threshold=self.threshold)
             else:
                 active_action_mask = F.one_hot(th.squeeze(replay_data.actions), n_actions).float()
 
