@@ -41,6 +41,7 @@ class GroupedDQN(DQN):
             method: str = None,
             threshold: Union[None, float] = None,
             wandb: bool = True,
+            regularization_starts: int = 50000,
     ):
 
         super(GroupedDQN, self).__init__(
@@ -74,6 +75,7 @@ class GroupedDQN(DQN):
         self.method = method
         self.action_trainer = action_trainer
         self.threshold = threshold
+        self.regularization_starts = regularization_starts
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Update learning rate according to schedule
@@ -91,7 +93,7 @@ class GroupedDQN(DQN):
             n_actions = self.env.action_space.n
 
             # find equivalent actions
-            if self.method == 'group':
+            if self.method == 'group' and self.num_timesteps > self.regularization_starts:
                 action_model_probs = action_probs(obs=replay_data.observations,
                                                   next_obs=replay_data.next_observations,
                                                   action_module=self.action_trainer.action_model.q_net,
