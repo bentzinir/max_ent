@@ -139,6 +139,7 @@ class GroupedDQN(DQN):
         logger.record("train/loss", np.mean(losses))
         logger.record("action model/mask_size", mask_size.item(), exclude="tensorboard")
         logger.record("action model/method", self.method, exclude="tensorboard")
+        logger.record("train/ID", self.env.unwrapped.envs[0].spec.id, exclude="tensorboard")
 
         # wandb logging
         if self.wandb:
