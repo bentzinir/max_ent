@@ -38,7 +38,7 @@ class GroupedDQN(DQN):
             device: Union[th.device, str] = "auto",
             _init_setup_model: bool = True,
             action_trainer=None,
-            method: bool = False,
+            method: str = None,
             threshold: Union[None, float] = None,
             wandb: bool = True,
     ):
@@ -85,13 +85,13 @@ class GroupedDQN(DQN):
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
             # train action model
-            if self.method:
+            if self.method == 'group':
                 self.action_trainer.train_step(replay_data, max_grad_norm=None)
 
             n_actions = self.env.action_space.n
 
             # find equivalent actions
-            if self.method:
+            if self.method == 'group':
                 action_model_probs = action_probs(obs=replay_data.observations,
                                                   next_obs=replay_data.next_observations,
                                                   action_module=self.action_trainer.action_model.q_net,
@@ -138,6 +138,7 @@ class GroupedDQN(DQN):
         logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         logger.record("train/loss", np.mean(losses))
         logger.record("action model/mask_size", mask_size.item(), exclude="tensorboard")
+        logger.record("action model/method", self.method, exclude="tensorboard")
 
         # wandb logging
         if self.wandb:
