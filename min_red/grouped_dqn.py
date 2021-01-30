@@ -93,6 +93,7 @@ class GroupedDQN(DQN):
             n_actions = self.env.action_space.n
 
             # find equivalent actions
+            replayed_action_mask = F.one_hot(th.squeeze(replay_data.actions), n_actions).float()
             if self.method == 'group' and self.num_timesteps > self.regularization_starts:
                 action_model_probs = action_probs(obs=replay_data.observations,
                                                   next_obs=replay_data.next_observations,
@@ -102,8 +103,10 @@ class GroupedDQN(DQN):
                 active_action_mask = active_mask(actions=replay_data.actions,
                                                  action_model_probs=action_model_probs,
                                                  threshold=self.threshold)
+
+                active_action_mask = th.logical_or(active_action_mask, replayed_action_mask).float()
             else:
-                active_action_mask = F.one_hot(th.squeeze(replay_data.actions), n_actions).float()
+                active_action_mask = replayed_action_mask
 
             with th.no_grad():
                 # Compute the target Q values
