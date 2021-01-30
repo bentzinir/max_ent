@@ -14,7 +14,7 @@ policy:
   policy_kwargs: 'empty_dict'
   verbose: 1
   method: None
-  absolute_threshold: True
+  absolute_threshold: None
 
 learn:
   total_timesteps: None
