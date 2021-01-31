@@ -35,8 +35,8 @@ def run(env):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=str, default="none")
-
-    run(parser.env)
+    args, extra_args = parser.parse_known_args()
+    run(args.env)
 
     # envs = [
     #     "BreakoutNoFrameskip-v4",
