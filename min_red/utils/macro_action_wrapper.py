@@ -27,7 +27,14 @@ class MacroActionRepeatEnv(gym.Wrapper):
         self.cumulative_reward = 0
         self.wandb_log_interval = wandb_log_interval
 
+    def wandb_logging(self):
+        if self.wandb_log_interval > 0 and self.num_timesteps % self.wandb_log_interval == 0:
+            ep_R = np.nanmean(self.reward_queue)
+            wandb.log({f"reward": ep_R}, step=self.num_timesteps)
+
     def step(self, action: int) -> GymStepReturn:
+        self.wandb_logging()
+
         total_reward = 0.0
         done = None
         for a in self.macro_actions[action]:
@@ -39,10 +46,6 @@ class MacroActionRepeatEnv(gym.Wrapper):
             if done:
                 break
         self.cumulative_reward += total_reward
-        # wandb logging
-        if self.wandb_log_interval > 0 and self.num_timesteps % self.wandb_log_interval == 0:
-            ep_R = np.nanmean(self.reward_queue)
-            wandb.log({f"reward": ep_R}, step=self.num_timesteps)
         return obs, total_reward, done, info
 
     def reset(self, **kwargs):
