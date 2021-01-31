@@ -6,8 +6,8 @@ ensemble_size: 1
 total_timesteps: 100000
 step_mixture: True
 env_kwargs: 'empty_dict'
-vec_env_kwargs: 'empty_dict'
+vec_env_kwargs:
+  wandb_log_interval: 1000
 is_atari: False
 play_model: False
 save_model: False
-wandb: False

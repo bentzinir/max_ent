@@ -11,7 +11,6 @@ from mixture.config.parser_args import get_config
 from mixture.config.config import Config
 import argparse
 from stable_baselines3.common.env_util import make_vec_env
-from mixture.utils.make_atari_stack_env import make_atari_stack_env
 from common.format_string import pretty
 import wandb
 import os
@@ -36,12 +35,10 @@ def eval_policy(env, model):
 
 
 def train(config):
-    if config.is_atari:
-        make_env = make_atari_stack_env
-    else:
-        make_env = make_vec_env
-    env = make_env(config.env_id, n_envs=1, seed=0, vec_env_cls=DummyEnsembleVecEnv,
-                   vec_env_kwargs=config.vec_env_kwargs, env_kwargs=config.env_kwargs)
+
+    env = make_vec_env(config.env_id, n_envs=1, seed=0, vec_env_cls=DummyEnsembleVecEnv,
+                       vec_env_kwargs=config.vec_env_kwargs,
+                       env_kwargs=config.env_kwargs)
 
     obs_shape = list(env.observation_space.shape)
     if config.algorithm.discrete:
@@ -91,7 +88,6 @@ def bcast_config_vals(config):
     config.vec_env_kwargs["step_mixture"] = config.step_mixture
     config.algorithm.policy["device"] = config.device
     config.algorithm.policy.method = config.method
-    config.algorithm.policy.wandb = config.wandb
     return config
 
 
@@ -101,7 +97,7 @@ if __name__ == '__main__':
     args, extra_args = parser.parse_known_args()
     config = get_config(args.f)
     config = bcast_config_vals(config)
-    if config.wandb:
+    if config.vec_env_kwargs.wandb_log_interval > 0:
         run = wandb.init(config=config)
     else:
         pretty(config)

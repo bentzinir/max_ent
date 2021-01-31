@@ -2,7 +2,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 import scipy.special
 from copy import deepcopy
 from typing import Any, Callable, List, Optional, Sequence, Union
-
+import wandb
 import gym
 import numpy as np
 
@@ -14,7 +14,8 @@ from collections import deque
 class DummyEnsembleVecEnv(DummyVecEnv):
     def __init__(self, env_fns: List[Callable[[], gym.Env]], ensemble_size: int = 1,
                  step_mixture: bool = False,
-                 prioritized_ensemble: bool = False):
+                 prioritized_ensemble: bool = False,
+                 wandb_log_interval: int = -1):
         super(DummyEnsembleVecEnv, self).__init__(env_fns)
         self.ensemble_size = ensemble_size
         self.member = random.choice(range(ensemble_size))
@@ -25,11 +26,21 @@ class DummyEnsembleVecEnv(DummyVecEnv):
         self.episode_len = 0
         self.prioritized_ensemble = prioritized_ensemble
         self.member_hist = deque(maxlen=100)
+        self.wandb_log_interval = wandb_log_interval
+        self.num_timesteps = 0
+
+    def wandb_logging(self):
+        if self.wandb_log_interval > 0 and self.num_timesteps % self.wandb_log_interval == 0:
+            for e in range(self.ensemble_size):
+                reward_e = np.nanmean(self.reward_queues[e])
+                wandb.log({f"reward_{e}": reward_e}, step=self.num_timesteps)
 
     def step_async(self, actions: np.ndarray) -> None:
         self.actions = actions
 
     def step_wait(self) -> VecEnvStepReturn:
+        self.wandb_logging()
+        self.num_timesteps += 1
         for env_idx in range(self.num_envs):
             if self.step_mixture:
                 self.member = self.draw_member()

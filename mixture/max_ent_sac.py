@@ -56,7 +56,7 @@ class MaxEntSAC(SAC):
             shared_critic: bool = False,
             shared_body: bool = False,
             net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = [300, 400],
-            wandb: bool = True,
+            wandb_logging: bool = True,
     ):
         if noise_type == 'normal':
             print(f"!!!!!!!!!!!!!! Adding Gaussian noise to actions !!!!!!!!!!!!!!")
@@ -67,7 +67,7 @@ class MaxEntSAC(SAC):
                               "net_arch": net_arch,
                               "shared_critic": shared_critic,
                               "shared_body": shared_body})
-        self.wandb = wandb
+        self.wandb_logging = wandb_logging
         self.method = method
         self.ensemble_size = ensemble_size
         self.shared_critic = shared_critic
