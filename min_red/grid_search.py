@@ -29,7 +29,7 @@ def run(env):
                        f" --env_id {env} & "
             print(cmd_line)
             os.system(cmd_line)
-            time.sleep(0.1)
+            time.sleep(10)
 
 
 if __name__ == '__main__':
