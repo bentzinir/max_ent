@@ -43,8 +43,7 @@ def train(config):
     else:
         vec_env = SubprocVecEnv
     env = make_env(config.env_id, n_envs=config.n_envs, seed=0, vec_env_cls=vec_env,
-                   wrapper_kwargs={'macro_length': config.macro_length,
-                                   'vis': config.vis},
+                   wrapper_kwargs=config.wrapper_kwargs,
                    vec_env_kwargs=config.vec_env_kwargs,
                    env_kwargs=config.env_kwargs)
 
@@ -98,7 +97,6 @@ def bcast_config_vals(config):
     config.algorithm.learn.total_timesteps = config.total_timesteps
     config.algorithm.policy["device"] = config.device
     config.algorithm.policy.method = config.method
-    config.algorithm.policy.wandb = config.wandb
     return config
 
 
@@ -108,7 +106,7 @@ if __name__ == '__main__':
     args, extra_args = parser.parse_known_args()
     config = get_config(args.f)
     config = bcast_config_vals(config)
-    if config.wandb:
+    if config.wrapper_kwargs.wandb_log_interval > 0:
         run = wandb.init(config=config)
     else:
         pretty(config)

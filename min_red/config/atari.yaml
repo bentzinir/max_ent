@@ -6,9 +6,10 @@ total_timesteps: 5000000
 env_kwargs: 'empty_dict'
 n_envs: 10
 vis: False
-macro_length: 1
+wrapper_kwargs:
+  macro_length: 1
+  wandb_log_interval: 10000
 vec_env_kwargs: 'empty_dict'
 is_atari: True
 play_model: False
 save_model: False
-wandb: False

@@ -121,11 +121,11 @@ def collect_rollouts(
             logger.record("train/member_hist", format_string(h.tolist()), exclude="tensorboard")
             logger.record("train/ID", self.env.unwrapped.envs[0].spec.id, exclude="tensorboard")
 
-            # wandb logging
-            if self.wandb:
-                for e in range(self.ensemble_size):
-                    reward_e = np.nanmean(env.reward_queues[e])
-                    wandb.log({f"reward_{e}": reward_e}, step=self.num_timesteps)
+        # wandb logging
+        if self.wandb and self.num_timesteps % 5000 == 0:
+            for e in range(self.ensemble_size):
+                reward_e = np.nanmean(env.reward_queues[e])
+                wandb.log({f"reward_{e}": reward_e}, step=self.num_timesteps)
 
     mean_reward = np.mean(episode_rewards) if total_episodes > 0 else 0.0
 

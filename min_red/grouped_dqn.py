@@ -6,7 +6,6 @@ from stable_baselines3.common import logger
 from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.dqn.policies import DQNPolicy
 from stable_baselines3.dqn import DQN
-import wandb
 from min_red.min_red_regularization import action_probs, active_mask
 
 
@@ -40,7 +39,6 @@ class GroupedDQN(DQN):
             action_trainer=None,
             method: str = None,
             threshold: Union[None, float] = None,
-            wandb: bool = True,
             regularization_starts: int = 50000,
     ):
 
@@ -71,7 +69,6 @@ class GroupedDQN(DQN):
             _init_setup_model,
         )
 
-        self.wandb = wandb
         self.method = method
         self.action_trainer = action_trainer
         self.threshold = threshold
@@ -145,8 +142,3 @@ class GroupedDQN(DQN):
         logger.record("action model/mask_size", mask_size.item(), exclude="tensorboard")
         logger.record("action model/method", self.method, exclude="tensorboard")
         logger.record("train/ID", self.env.unwrapped.envs[0].spec.id, exclude="tensorboard")
-
-        # wandb logging
-        if self.wandb:
-            rewards = [buf['r'] for buf in self.ep_info_buffer]
-            wandb.log({f"reward": np.nanmean(rewards)}, step=self.num_timesteps)
