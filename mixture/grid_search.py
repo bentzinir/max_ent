@@ -1,4 +1,6 @@
 import os
+import time
+
 envs = ['Hopper-v2', 'HalfCheetah-v2', 'Ant-v2', 'Swimmer-v2', 'Walker2d-v2', 'Humanoid-v2']
 methods = ['entropy', 'next-action', 'mixture', 'semi-mixture']
 n_repeats = 2
@@ -13,8 +15,8 @@ wandb_log_interval = 10000  # (timesteps)
 n_repeats = 2
 buffer_size = 1000000
 envs = ['Hopper-v2']
-methods = ['mixture', 'semi-mixture']
-ensemble_sizes = [1, 2, 3]
+methods = ['mixture', 'semi-mixture', 'entropy']
+# ensemble_sizes = [1, 2, 3]
 
 for trials in range(n_repeats):
     for env in envs:
@@ -31,3 +33,4 @@ for trials in range(n_repeats):
                            f" --env_id {env} & "
                 print(cmd_line)
                 os.system(cmd_line)
+                time.sleep(0.1)
