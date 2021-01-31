@@ -3,7 +3,7 @@ import time
 import argparse
 
 
-def run(env):
+def run(env, pause):
 
     methods = [
               'baseline',
@@ -29,14 +29,15 @@ def run(env):
                        f" --env_id {env} & "
             print(cmd_line)
             os.system(cmd_line)
-            time.sleep(10)
+            time.sleep(pause)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=str, default="none")
+    parser.add_argument("--pause", type=int, default=1)
     args, extra_args = parser.parse_known_args()
-    run(args.env)
+    run(args.env, args.pause)
 
     # envs = [
     #     "BreakoutNoFrameskip-v4",
