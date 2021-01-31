@@ -35,7 +35,7 @@ def run(env, pause):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=str, default="none")
-    parser.add_argument("--pause", type=int, default=1)
+    parser.add_argument("--pause", type=float, default=0.1)
     args, extra_args = parser.parse_known_args()
     run(args.env, args.pause)
 
