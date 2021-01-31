@@ -18,7 +18,7 @@ methods = ['mixture', 'semi-mixture', 'entropy']
 for trials in range(n_repeats):
     for env in envs:
         for method in methods:
-            cmd_line = f"python -m ensemble.train --f=mujoco --wandb True" \
+            cmd_line = f"python -m mixture.train --f=mixture/config/mujoco --wandb True" \
                        f" --total_timesteps {total_timesteps} " \
                        f" --algorithm.learn.log_interval {log_interval} " \
                        f" --step_mixture {step_mixture}" \
