@@ -45,7 +45,8 @@ if __name__ == '__main__':
     #     "RiverraidNoFrameskip-v4",
     #     "RobotankNoFrameskip-v4",
     #     "SeaquestNoFrameskip-v4",
-    #
+    #     "DemonAttackNoFrameskip-v4"
+
     #     "AirRaidNoFrameskip-v4",   # hard
     #     "PrivateEyeNoFrameskip-v4",   # hard
     #     "QbertNoFrameskip-v4",   # hard
@@ -54,14 +55,10 @@ if __name__ == '__main__':
     #            - AmidarNoFrameskip-v4
     #            - AsteroidsNoFrameskip-v4
     #            - BowlingNoFrameskip-v4
-    #            - DemonAttackNoFrameskip-v4
     #            - FrostbiteNoFrameskip-v4
     #            - GravitarNoFrameskip-v4
     #            - KrullNoFrameskip-v4
     #            - NameThisGameNoFrameskip-v4
-    #            - RiverraidNoFrameskip-v4
-    #            - RobotankNoFrameskip-v4
-    #            - SeaquestNoFrameskip-v4
     #            - SpaceInvadersNoFrameskip-v4
     #            - StarGunnerNoFrameskip-v4
     #            - TennisNoFrameskip-v4
