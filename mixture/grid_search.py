@@ -7,6 +7,7 @@ step_mixture = 'true'
 total_timesteps = 3000000
 buffer_size = 300000
 log_interval = 1  # (episodes)
+wandb_log_interval = 10000  # (timesteps)
 
 # Debug
 n_repeats = 2
@@ -18,7 +19,8 @@ methods = ['mixture', 'semi-mixture', 'entropy']
 for trials in range(n_repeats):
     for env in envs:
         for method in methods:
-            cmd_line = f"python -m mixture.train --f=mixture/config/mujoco --wandb True" \
+            cmd_line = f"python -m mixture.train --f=mixture/config/mujoco " \
+                       f" --wandb_log_interval {wandb_log_interval} " \
                        f" --total_timesteps {total_timesteps} " \
                        f" --algorithm.learn.log_interval {log_interval} " \
                        f" --step_mixture {step_mixture}" \

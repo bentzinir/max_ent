@@ -92,6 +92,7 @@ class AtariStackWrapper(gym.Wrapper):
         self,
         env: gym.Env,
         macro_length: int = 1,
+        wandb_log_interval: int = -1,
         vis: bool = False,
         noop_max: int = 30,
         frame_skip: int = 4,
@@ -115,5 +116,5 @@ class AtariStackWrapper(gym.Wrapper):
         # assert False, "Please set the num_stack properly"
         env = FrameStack(env, num_stack=num_stack)
         env = AtariTransposeChannels(env)
-        env = MacroActionWrapper(env, macro_length=macro_length, vis=vis)
+        env = MacroActionWrapper(env, macro_length=macro_length, vis=vis, wandb_log_interval=wandb_log_interval)
         super(AtariStackWrapper, self).__init__(env)
