@@ -104,7 +104,7 @@ class GroupedDQN(DQN):
                                                  action_model_probs=action_model_probs,
                                                  threshold=self.threshold)
 
-                active_action_mask = th.logical_or(active_action_mask, replayed_action_mask).float()
+                active_action_mask = (active_action_mask + replayed_action_mask).bool().float()
             else:
                 active_action_mask = replayed_action_mask
 
