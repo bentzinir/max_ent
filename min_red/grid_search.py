@@ -3,7 +3,7 @@ import time
 import argparse
 
 
-def run(env, delta, macro_length, n_repeats, wandb_log_interval, total_timesteps, pause):
+def run(env_id, delta, macro_length, n_repeats, wandb_log_interval, total_timesteps, pause):
 
     methods = [
               'baseline',
@@ -21,7 +21,7 @@ def run(env, delta, macro_length, n_repeats, wandb_log_interval, total_timesteps
                        f" --algorithm.learn.log_interval {log_interval} " \
                        f" --algorithm.policy.threshold {delta}" \
                        f" --macro_length {macro_length} " \
-                       f" --env {env} & "
+                       f" --env_id {env_id} & "
             print(cmd_line)
             os.system(cmd_line)
             time.sleep(pause)
@@ -29,7 +29,7 @@ def run(env, delta, macro_length, n_repeats, wandb_log_interval, total_timesteps
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", type=str, default="none")
+    parser.add_argument("--env_id", type=str, default="none")
     parser.add_argument("--delta", type=float, default=0.1)
     parser.add_argument("--macro_length", type=int, default=1)
     parser.add_argument("--n_repeats", type=int, default=2)
