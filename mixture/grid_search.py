@@ -14,7 +14,7 @@ def run(envs, ensemble_sizes, methods, n_repeats, wandb_log_interval, total_time
             for method in methods:
                 for ens_size in ensemble_sizes:
                     cmd_line = f"python -m mixture.train --f=mixture/config/mujoco " \
-                               f" --wrapper_kwargs.wandb_log_interval {wandb_log_interval} " \
+                               f" --vec_env_kwargs.wandb_log_interval {wandb_log_interval} " \
                                f" --total_timesteps {total_timesteps} " \
                                f" --algorithm.learn.log_interval {log_interval} " \
                                f" --step_mixture {step_mixture}" \
