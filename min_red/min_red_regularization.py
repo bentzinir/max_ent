@@ -11,9 +11,9 @@ def action_probs(obs, next_obs, action_module, cat_dim=1):
 
 def active_mask(actions, action_model_probs, threshold):
     n_actions = action_model_probs.shape[1]
-    a_mask = F.one_hot(th.squeeze(actions), n_actions).float()
-    pa_a = th.sum(a_mask * action_model_probs, dim=1, keepdim=True)
     if threshold is None:
+        a_mask = F.one_hot(th.squeeze(actions), n_actions).float()
+        pa_a = th.sum(a_mask * action_model_probs, dim=1, keepdim=True)
         # use relative threshold : thresh = p(a|s,s')
         threshold = pa_a.repeat(1, n_actions)
     active_actions = (action_model_probs >= threshold).float()
