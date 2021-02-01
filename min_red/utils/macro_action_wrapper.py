@@ -19,8 +19,11 @@ class MacroActionRepeatEnv(gym.Wrapper):
         gym.Wrapper.__init__(self, env)
         # most recent raw observations (for max pooling across time steps)
         self._k = k
-        self.macro_actions = list(itertools.permutations(range(env.action_space.n),k))
+
+        self.macro_actions = list(itertools.product(range(env.action_space.n), repeat=k))
         self.action_space = gym.spaces.Discrete(len(self.macro_actions))
+        print(f" !!!!!!!!! (Macro Action Wrapper). |A| :{env.action_space.n} Macro Length: {k}, Augmented |A|: {self.action_space.n} !!!!!!!!! ")
+
         self.vis = vis
         self.num_timesteps = 0
         self.ep_info_buffer = deque(maxlen=100)

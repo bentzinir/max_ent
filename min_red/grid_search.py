@@ -3,7 +3,7 @@ import time
 import argparse
 
 
-def run(env_id, delta, macro_length, n_repeats, wandb_log_interval, total_timesteps, pause):
+def run(env_id, delta, macro_length, n_repeats, wandb_log_interval, total_timesteps, pause, dry):
 
     methods = [
               'baseline',
@@ -20,11 +20,12 @@ def run(env_id, delta, macro_length, n_repeats, wandb_log_interval, total_timest
                        f" --total_timesteps {total_timesteps} " \
                        f" --algorithm.learn.log_interval {log_interval} " \
                        f" --algorithm.policy.threshold {delta}" \
-                       f" --macro_length {macro_length} " \
+                       f" --wrapper_kwargs.macro_length {macro_length} " \
                        f" --env_id {env_id} & "
             print(cmd_line)
-            os.system(cmd_line)
-            time.sleep(pause)
+            if not dry:
+                os.system(cmd_line)
+                time.sleep(pause)
 
 
 if __name__ == '__main__':
@@ -36,6 +37,7 @@ if __name__ == '__main__':
     parser.add_argument("--wandb_log_interval", type=int, default=10000)
     parser.add_argument("--total_timesteps", type=int, default=3000000)
     parser.add_argument("--pause", type=float, default=0.1)
+    parser.add_argument("--dry", action='store_true')
 
     args, extra_args = parser.parse_known_args()
     run(**args.__dict__)
