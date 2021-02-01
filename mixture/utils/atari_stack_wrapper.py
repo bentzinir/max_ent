@@ -107,8 +107,8 @@ class AtariStackWrapper(gym.Wrapper):
             env = EpisodicLifeEnv(env)
         if "FIRE" in env.unwrapped.get_action_meanings():
             # replacing with custom fire reset env
-            # env = FireResetEnv(env)
-            env = LoopFireResetEnv(env)
+            env = FireResetEnv(env)
+            # env = LoopFireResetEnv(env)
         env = WarpFrame(env, width=screen_size, height=screen_size)
         if clip_reward:
             env = ClipRewardEnv(env)
