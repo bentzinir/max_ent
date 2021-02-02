@@ -21,6 +21,6 @@ def stochastic_min_red(obs, next_obs, action, actor, action_module, cat_dim, log
     g = action_model_logp - log_p
     if importance_sampling:
         w = th.exp(log_p) / th.exp(logp0.view(log_p.shape))
-        g = g * th.clamp(w, 1e-4, 1)
+        g = g * th.clamp(w, 1e-4, 4)
         logger.record("train/is_weights", w.mean().item(), exclude="tensorboard")
     return g
