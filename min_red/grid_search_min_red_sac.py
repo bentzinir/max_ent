@@ -3,7 +3,7 @@ import time
 import argparse
 
 
-def run(envs, ent_coef, methods, n_repeats, wandb_log_interval, total_timesteps, pause, dry):
+def run(envs, ent_coef, methods, n_repeats, buffer_size, wandb_log_interval, total_timesteps, pause, dry):
 
     log_interval = 1
 
@@ -14,6 +14,7 @@ def run(envs, ent_coef, methods, n_repeats, wandb_log_interval, total_timesteps,
                            f" --wrapper_kwargs.wandb_log_interval {wandb_log_interval} " \
                            f" --method {method} " \
                            f" --algorithm.policy.ent_coef {ent_coef} " \
+                           f" --algorithm.policy.buffer_size {buffer_size} " \
                            f" --total_timesteps {total_timesteps} " \
                            f" --algorithm.learn.log_interval {log_interval} " \
                            f" --env_id {env} & "
@@ -32,6 +33,7 @@ if __name__ == '__main__':
     parser.add_argument("--wandb_log_interval", type=int, default=10000)
     parser.add_argument("--ent_coef", type=float, default=0.1)
     parser.add_argument("--total_timesteps", type=int, default=3000000)
+    parser.add_argument("--buffer_size", type=int, default=50000)
     parser.add_argument("--pause", type=float, default=0.1)
     parser.add_argument("--dry", action='store_true')
 
