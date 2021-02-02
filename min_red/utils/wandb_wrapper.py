@@ -22,6 +22,6 @@ class WandbWrapper(gym.Wrapper):
         self.wandb_logging()
         self.num_timesteps += 1
         observation, reward, done, info = self.env.step(action)
-        if done:
+        if done and info.get('episode', False):
             self.ep_info_buffer.append(info['episode'])
         return observation, reward, done, info
