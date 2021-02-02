@@ -11,6 +11,7 @@ from gym.wrappers.frame_stack import FrameStack
 import numpy as np
 from gym.spaces import Box
 from min_red.utils.macro_action_wrapper import MacroActionWrapper
+from min_red.utils.wandb_wrapper import WandbWrapper
 
 
 class LoopFireResetEnv(gym.Wrapper):
@@ -117,4 +118,6 @@ class AtariStackWrapper(gym.Wrapper):
         env = FrameStack(env, num_stack=num_stack)
         env = AtariTransposeChannels(env)
         env = MacroActionWrapper(env, macro_length=macro_length, vis=vis, wandb_log_interval=wandb_log_interval)
+        # wandb logging
+        env = WandbWrapper(env, wandb_log_interval=wandb_log_interval)
         super(AtariStackWrapper, self).__init__(env)

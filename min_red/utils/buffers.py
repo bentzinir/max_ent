@@ -25,9 +25,9 @@ class ISReplayBuffer(ReplayBuffer):
             n_envs,
             optimize_memory_usage,
         )
-        self.pi = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.logp = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
 
-    def add(self, obs: np.ndarray, next_obs: np.ndarray, action: np.ndarray, reward: np.ndarray, done: np.ndarray, pi: int) -> None:
+    def add(self, obs: np.ndarray, next_obs: np.ndarray, action: np.ndarray, reward: np.ndarray, done: np.ndarray, logp: int) -> None:
         # Copy to avoid modification by reference
         self.observations[self.pos] = np.array(obs).copy()
         if self.optimize_memory_usage:
@@ -38,7 +38,7 @@ class ISReplayBuffer(ReplayBuffer):
         self.actions[self.pos] = np.array(action).copy()
         self.rewards[self.pos] = np.array(reward).copy()
         self.dones[self.pos] = np.array(done).copy()
-        self.pi[self.pos] = np.array(pi).copy()
+        self.logp[self.pos] = np.array(logp).copy()
 
         self.pos += 1
         if self.pos == self.buffer_size:
@@ -57,7 +57,7 @@ class ISReplayBuffer(ReplayBuffer):
             next_obs,
             self.dones[batch_inds],
             self._normalize_reward(self.rewards[batch_inds], env),
-            self.pi[batch_inds],
+            self.logp[batch_inds],
         )
         return ISReplayBufferSamples(*tuple(map(self.to_torch, data)))
 
@@ -68,4 +68,4 @@ class ISReplayBufferSamples(NamedTuple):
     next_observations: th.Tensor
     dones: th.Tensor
     rewards: th.Tensor
-    pi: th.Tensor
+    logp: th.Tensor

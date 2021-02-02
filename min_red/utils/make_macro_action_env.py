@@ -4,6 +4,7 @@ import gym
 
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
 from min_red.utils.macro_action_wrapper import MacroActionWrapper
+from min_red.utils.wandb_wrapper import WandbWrapper
 
 
 def make_macro_action_env(
@@ -22,7 +23,11 @@ def make_macro_action_env(
         wrapper_kwargs = {}
 
     def macro_action_wrapper(env: gym.Env) -> gym.Env:
-        env = MacroActionWrapper(env, **wrapper_kwargs)
+        if wrapper_kwargs.get('macro_length', 1) > 1:
+            env = MacroActionWrapper(env, **wrapper_kwargs)
+        else:
+            wandb_log_interval = wrapper_kwargs.get('wandb_log_interval', 0)
+            env = WandbWrapper(env, wandb_log_interval=wandb_log_interval)
         return env
 
     return make_vec_env(

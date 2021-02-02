@@ -9,7 +9,6 @@ from stable_baselines3.common.type_aliases import RolloutReturn
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common import logger
 from common.format_string import format_string
-import wandb
 
 
 def collect_rollouts(
@@ -54,8 +53,6 @@ def collect_rollouts(
             self.num_timesteps += 1
             episode_timesteps += 1
             total_steps += 1
-            if self.method == 'min_red':
-                self.discrimination_trainer.num_timesteps += 1
 
             # Give access to local variables
             callback.update_locals(locals())

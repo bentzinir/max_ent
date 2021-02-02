@@ -49,16 +49,15 @@ if __name__ == '__main__':
     #     "RobotankNoFrameskip-v4",
     #     "SeaquestNoFrameskip-v4",
     #     "DemonAttackNoFrameskip-v4"
-
     #     "AirRaidNoFrameskip-v4",   # hard
     #     "PrivateEyeNoFrameskip-v4",   # hard
     #     "QbertNoFrameskip-v4",   # hard
-    #     "MontezumaRevengeNoFrameskip-v4",  # hard
-    #            - AlienNoFrameskip-v4  # hard
-    #            - AmidarNoFrameskip-v4
     #            - AsteroidsNoFrameskip-v4
+    #            - AmidarNoFrameskip-v4
     #            - BowlingNoFrameskip-v4
     #            - FrostbiteNoFrameskip-v4
+
+
     #            - GravitarNoFrameskip-v4
     #            - KrullNoFrameskip-v4
     #            - NameThisGameNoFrameskip-v4
@@ -68,4 +67,6 @@ if __name__ == '__main__':
     #            - TimePilotNoFrameskip-v4
     #            - TutankhamNoFrameskip-v4
     #            - WizardOfWorNoFrameskip-v4
+    #     "MontezumaRevengeNoFrameskip-v4",  # hard
+    #            - AlienNoFrameskip-v4  # hard
     # ]

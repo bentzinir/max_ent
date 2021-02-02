@@ -10,6 +10,10 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
 from stable_baselines3.common.utils import polyak_update
 from stable_baselines3.sac.policies import SACPolicy
 from stable_baselines3.sac import SAC
+import types
+from min_red.utils.collect_rollouts import collect_rollouts
+from min_red.utils.buffers import ISReplayBuffer
+from min_red.min_red_regularization_stochastic import stochastic_min_red
 
 
 class MinRedSAC(SAC):
@@ -44,8 +48,15 @@ class MinRedSAC(SAC):
         action_trainer=None,
         alpha=0.1,
         method='none',
-        exploration_final_eps=0
+        regularization_starts: int = 1,
+        importance_sampling: bool = False,
     ):
+
+        self.action_trainer = action_trainer
+        self.alpha = alpha
+        self.method = method
+        self.regularization_starts = regularization_starts
+        self.importance_sampling = importance_sampling
 
         super(MinRedSAC, self).__init__(
             policy,
@@ -76,9 +87,30 @@ class MinRedSAC(SAC):
             _init_setup_model,
         )
 
-        self.action_trainer = action_trainer
-        self.alpha = alpha
-        self.method = method
+        def forward(self, obs: th.Tensor, deterministic: bool = False) -> th.Tensor:
+            mean_actions, log_std, kwargs = self.get_action_dist_params(obs)
+            # return action and store log prob
+            actions, log_prob = self.action_dist.log_prob_from_params(mean_actions, log_std, **kwargs)
+            self._last_logp = log_prob
+            assert not deterministic, "We thought that always deterministic=False"
+            return actions
+
+        # override actor's forward method for this object only
+        self.actor.forward = types.MethodType(forward, self.actor)
+
+        # override collect_rollout method for this object only
+        self.collect_rollouts = types.MethodType(collect_rollouts, self)
+
+        self.actor._last_logp = th.Tensor(1)
+
+        # override replay buffer
+        self.replay_buffer = ISReplayBuffer(
+            self.buffer_size,
+            self.observation_space,
+            self.action_space,
+            self.device,
+            optimize_memory_usage=self.optimize_memory_usage,
+        )
 
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         # Update optimizers learning rate
@@ -92,13 +124,12 @@ class MinRedSAC(SAC):
         ent_coef_losses, ent_coefs = [], []
         actor_losses, critic_losses = [], []
 
-        plain_sac = False
         for gradient_step in range(gradient_steps):
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
             # train action model
-            if not plain_sac:
+            if self.method == 'stochastic':
                 self.action_trainer.train_step(replay_data)
 
             # We need to sample because `log_std` may have changed between two gradient steps
@@ -136,55 +167,38 @@ class MinRedSAC(SAC):
                 targets = th.cat(self.critic_target(replay_data.next_observations, next_actions), dim=1)
                 target_q, _ = th.min(targets, dim=1, keepdim=True)
                 # add entropy term
-                if plain_sac:
-                    # OLD
-                    target_q = target_q - ent_coef * next_log_prob.reshape(-1, 1)
-                else:
-                    ###############################
-                    # NEW
-                    # Entropy & Action Uniqueness regularization
-                    # 1. build s,s'=f(s,a) distribution function
-                    x = th.cat((replay_data.observations, replay_data.next_observations),
-                               dim=self.action_trainer.cat_dim).float()
-                    # 1.1 calculate mu, sigma of the Gaussian action model
-                    mu, log_std, _ = self.action_trainer.action_model.actor.get_action_dist_params(x)
-                    # 1.2 update probability distribution with calculated mu, log_std
-                    self.action_trainer.action_model.actor.action_dist.proba_distribution(mu, log_std)
-                    # 2 use N(ss') to calculate the probability of a fresh sample from pi
-                    aprime_logp = self.action_trainer.action_model.actor.action_dist.log_prob(actions_pi)
-                    # 3. get the probability of the actually played action
-                    mu, log_std, _ = self.actor.get_action_dist_params(replay_data.observations)
-                    # 3.1 update probability distribution with calculated mu, log_std
-                    self.actor.action_dist.proba_distribution(mu, log_std)
-                    # 3.2 get the probability of replay_data.actions from the actor
-                    replay_action_logp = self.actor.action_dist.log_prob(replay_data.actions)
+                # OLD
+                # target_q = target_q - ent_coef * next_log_prob.reshape(-1, 1)
 
-                    with th.no_grad():
-                        if self.method == 'none':
-                            g = 0.0
-                        elif self.method == 'action':
-                            g = - ent_coef * next_log_prob
-                        elif self.method == 'next_log':
-                            # This is dangerous!
-                            # g = - ent_coef * (replay_action_logp - aprime_logp)
-                            # This is safer
-                            g = - ent_coef * (next_log_prob - aprime_logp)
-                        elif self.method == 'next_abs':
-                            g = ent_coef * th.abs(th.clamp(th.div(th.exp(aprime_logp),
-                                                                  th.exp(replay_action_logp)), min=0.2, max=5) - 1)
-                        else:
-                            raise ValueError
+                ###############################
+                # NEW
+                REWARDS = replay_data.rewards
+                with th.no_grad():
+                    if self.method == 'action':
+                        g = - log_prob
+                    elif self.method == 'stochastic':
+                        g = stochastic_min_red(obs=replay_data.observations,
+                                               next_obs=replay_data.next_observations,
+                                               action=replay_data.actions,
+                                               actor=self.actor,
+                                               action_module=self.action_trainer.action_model.actor,
+                                               logp0=replay_data.logp,
+                                               cat_dim=self.action_trainer.cat_dim,
+                                               importance_sampling=self.importance_sampling)
+                    else:
+                        raise ValueError
+
                     if th.any(th.isnan(g)).item():
                         print("Nan in g")
-                    target_q = target_q + g.reshape(-1, 1).detach()
+
                     logger.record("action model/method", self.method, exclude="tensorboard")
-                    logger.record("action model/g_min", g.min().item(), exclude="tensorboard")
                     logger.record("action model/g_mean", g.mean().item(), exclude="tensorboard")
-                    logger.record("action model/g_max", g.max().item(), exclude="tensorboard")
-                    ###############################
 
                 # td error + entropy term
-                q_backup = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_q
+                REWARDS = REWARDS + ent_coef * g.view(-1, 1)
+                ###############################
+
+                q_backup = REWARDS + (1 - replay_data.dones) * self.gamma * target_q
 
             # Get current Q estimates for each critic network
             # using action from the replay buffer
@@ -218,6 +232,7 @@ class MinRedSAC(SAC):
 
         self._n_updates += gradient_steps
 
+        logger.record("action model/method", self.method, exclude="tensorboard")
         logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         logger.record("train/ent_coef", np.mean(ent_coefs))
         logger.record("train/actor_loss", np.mean(actor_losses))

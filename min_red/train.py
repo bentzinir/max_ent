@@ -62,8 +62,7 @@ def train(config):
         policy = 'CnnPolicy'
     else:
         from min_red.min_red_sac import MinRedSAC as Algorithm
-        # from stable_baselines3.sac import MlpPolicy as Model
-        from continuous_action_model import DiagGaussianPolicy as ActionModel
+        from stable_baselines3.sac import MlpPolicy as ActionModel
         ssprime_shape = (2*obs_shape[0],)
         policy = 'MlpPolicy'
 
@@ -97,6 +96,8 @@ def bcast_config_vals(config):
     config.algorithm.learn.total_timesteps = config.total_timesteps
     config.algorithm.policy["device"] = config.device
     config.algorithm.policy.method = config.method
+    config.macro_length = config.wrapper_kwargs.macro_length
+    config.wandb_log_interval = config.wrapper_kwargs.wandb_log_interval
     return config
 
 
@@ -106,7 +107,7 @@ if __name__ == '__main__':
     args, extra_args = parser.parse_known_args()
     config = get_config(args.f)
     config = bcast_config_vals(config)
-    if config.wrapper_kwargs.wandb_log_interval > 0:
+    if config.wandb_log_interval > 0:
         run = wandb.init(config=config)
     else:
         pretty(config)

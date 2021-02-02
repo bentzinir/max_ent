@@ -1,14 +1,12 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
-
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, RolloutReturn
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common import logger
-import wandb
 
 
 def collect_rollouts(
@@ -22,24 +20,6 @@ def collect_rollouts(
         replay_buffer: Optional[ReplayBuffer] = None,
         log_interval: Optional[int] = None,
 ) -> RolloutReturn:
-    """
-    Collect experiences and store them into a ReplayBuffer.
-
-    :param env: The training environment
-    :param callback: Callback that will be called at each step
-        (and at the beginning and end of the rollout)
-    :param n_episodes: Number of episodes to use to collect rollout data
-        You can also specify a ``n_steps`` instead
-    :param n_steps: Number of steps to use to collect rollout data
-        You can also specify a ``n_episodes`` instead.
-    :param action_noise: Action noise that will be used for exploration
-        Required for deterministic policy (e.g. TD3). This can also be used
-        in addition to the stochastic policy for SAC.
-    :param learning_starts: Number of steps before learning for the warm-up phase.
-    :param replay_buffer:
-    :param log_interval: Log data every ``log_interval`` episodes
-    :return:
-    """
     episode_rewards, total_timesteps = [], []
     total_steps, total_episodes = 0, 0
 
@@ -93,7 +73,7 @@ def collect_rollouts(
                     # Avoid changing the original ones
                     self._last_original_obs, new_obs_, reward_ = self._last_obs, new_obs, reward
 
-                replay_buffer.add(self._last_original_obs, new_obs_, buffer_action, reward_, done, self.q_net._last_pi.cpu())
+                replay_buffer.add(self._last_original_obs, new_obs_, buffer_action, reward_, done, self.actor._last_logp)
 
             self._last_obs = new_obs
             # Save the unnormalized observation
@@ -124,13 +104,7 @@ def collect_rollouts(
             if log_interval is not None and self._episode_num % log_interval == 0:
                 self._dump_logs()
 
-            mean_reward = np.mean(episode_rewards) if total_episodes > 0 else 0.0
-            logger.record("train/rewards", mean_reward, exclude="tensorboard")
             logger.record("train/ID", self.env.unwrapped.envs[0].spec.id, exclude="tensorboard")
-
-            # wandb logging
-            if self.wandb:
-                wandb.log({f"reward": mean_reward}, step=self.num_timesteps)
 
     mean_reward = np.mean(episode_rewards) if total_episodes > 0 else 0.0
 

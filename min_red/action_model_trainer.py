@@ -54,7 +54,7 @@ class ActionModelTrainer:
 
         # Optimize the action model
         loss = -a_logp.mean()
-        self.optimizer.zero_grad()
+        self.action_model.actor.optimizer.zero_grad()
         loss.backward()
-        self.optimizer.step()
+        self.action_model.actor.optimizer.step()
         logger.record("action model/loss", loss.item())
