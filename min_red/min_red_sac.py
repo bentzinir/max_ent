@@ -101,7 +101,7 @@ class MinRedSAC(SAC):
         def get_action_dist_params(self, obs: th.Tensor) -> Tuple[th.Tensor, th.Tensor, Dict[str, th.Tensor]]:
             # CAP the standard deviation of the actor
             LOG_STD_MAX = 2
-            LOG_STD_MIN = -10
+            LOG_STD_MIN = -5
             features = self.extract_features(obs)
             latent_pi = self.latent_pi(features)
             mean_actions = self.mu(latent_pi)
