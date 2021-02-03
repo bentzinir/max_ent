@@ -56,11 +56,10 @@ if __name__ == '__main__':
     #            - AmidarNoFrameskip-v4
     #            - BowlingNoFrameskip-v4
     #            - FrostbiteNoFrameskip-v4
-
-
     #            - GravitarNoFrameskip-v4
     #            - KrullNoFrameskip-v4
     #            - NameThisGameNoFrameskip-v4
+
     #            - SpaceInvadersNoFrameskip-v4
     #            - StarGunnerNoFrameskip-v4
     #            - TennisNoFrameskip-v4
