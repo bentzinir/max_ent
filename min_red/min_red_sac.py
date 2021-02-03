@@ -124,7 +124,7 @@ class MinRedSAC(SAC):
         # override collect_rollout method for this object only
         self.collect_rollouts = types.MethodType(collect_rollouts, self)
 
-        self.actor._last_logp = th.Tensor(1)
+        self.actor._last_logp = th.from_numpy(np.asarray([0]))
 
         # override replay buffer
         self.replay_buffer = ISReplayBuffer(
