@@ -98,6 +98,29 @@ class MinRedSAC(SAC):
         # override actor's forward method for this object only
         self.actor.forward = types.MethodType(forward, self.actor)
 
+        def get_action_dist_params(self, obs: th.Tensor) -> Tuple[th.Tensor, th.Tensor, Dict[str, th.Tensor]]:
+            # CAP the standard deviation of the actor
+            LOG_STD_MAX = 2
+            LOG_STD_MIN = -5
+            features = self.extract_features(obs)
+            latent_pi = self.latent_pi(features)
+            mean_actions = self.mu(latent_pi)
+
+            if self.use_sde:
+                latent_sde = latent_pi
+                if self.sde_features_extractor is not None:
+                    latent_sde = self.sde_features_extractor(features)
+                return mean_actions, self.log_std, dict(latent_sde=latent_sde)
+            # Unstructured exploration (Original implementation)
+            log_std = self.log_std(latent_pi)
+            # Original Implementation to cap the standard deviation
+            log_std = th.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
+            return mean_actions, log_std, {}
+
+        # override action model minimum log_std
+        self.action_trainer.action_model.actor.get_action_dist_params = types.MethodType(get_action_dist_params,
+                                                                                   self.action_trainer.action_model.actor)
+
         # override collect_rollout method for this object only
         self.collect_rollouts = types.MethodType(collect_rollouts, self)
 
