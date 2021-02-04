@@ -2,7 +2,7 @@ import gym
 import envs
 import numpy as np
 import time
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecVideoRecorder
 from min_red.action_model_trainer import ActionModelTrainer
 from mixture.config.parser_args import get_config
 from mixture.config.config import Config
@@ -12,6 +12,7 @@ from min_red.utils.make_macro_action_env import make_macro_action_env
 from common.format_string import pretty
 import wandb
 import os
+from datetime import date
 
 try:
     import mujoco_maze
@@ -51,6 +52,12 @@ def train(config):
                    wrapper_kwargs=config.wrapper_kwargs,
                    vec_env_kwargs=config.vec_env_kwargs,
                    env_kwargs=config.env_kwargs)
+
+    if config.video_config:
+        env = VecVideoRecorder(env, "videos",
+                               record_video_trigger=lambda x: x % config.video_config.interval == 0,
+                               video_length=config.video_config.length,
+                               name_prefix=f"{config.env_id}_{date.today().strftime('%b-%d-%Y')}")
 
     obs_shape = list(env.observation_space.shape)
 

@@ -13,3 +13,6 @@ wrapper_kwargs:
 is_atari: False
 play_model: False
 save_model: False
+video_config:
+  length: 100
+  interval: 10000
