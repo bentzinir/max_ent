@@ -22,6 +22,7 @@ def run(envs, ent_coef, learning_rate, learning_starts, methods, n_repeats, buff
                            f" --algorithm.learn.log_interval {log_interval} " \
                            f" --env_id {env} & "
                 print(cmd_line)
+                print("\n")
                 if not dry:
                     os.system(cmd_line)
                     time.sleep(pause)
