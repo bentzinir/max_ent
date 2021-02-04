@@ -13,6 +13,11 @@ from common.format_string import pretty
 import wandb
 import os
 
+try:
+    import mujoco_maze
+except ImportError:
+    print(f"Mujoco Maze not found")
+
 
 def eval_policy(env, model):
     obs = env.reset()
