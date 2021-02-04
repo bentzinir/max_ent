@@ -10,8 +10,8 @@ policy:
   target_update_interval: 1
   policy_kwargs: 'empty_dict'
   verbose: 1
-  train_freq: 1
-  gradient_steps: 1
+  train_freq: 1000
+  gradient_steps: 1000
   method: None
   ent_coef: 'auto'
   importance_sampling: True

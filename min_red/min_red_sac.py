@@ -205,7 +205,8 @@ class MinRedSAC(SAC):
                                                action=replay_data.actions,
                                                actor=self.actor,
                                                action_module=self.action_trainer.action_model.actor,
-                                               logp0=replay_data.logp,
+                                               logp_fresh=log_prob,
+                                               logp0_replayed=replay_data.logp,
                                                cat_dim=self.action_trainer.cat_dim,
                                                importance_sampling=self.importance_sampling)
                     else:
