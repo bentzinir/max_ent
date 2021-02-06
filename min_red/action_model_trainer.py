@@ -1,19 +1,43 @@
 from stable_baselines3.common import logger
 import torch
 from torch.distributions.categorical import Categorical
+import gym
+from stable_baselines3.common.distributions import SquashedDiagGaussianDistribution
+from stable_baselines3.common.preprocessing import get_action_dim
+import torch as th
+from stable_baselines3.common.torch_layers import FlattenExtractor
+from stable_baselines3.dqn.policies import CnnPolicy
+from stable_baselines3.sac.policies import Actor
 
 
 class ActionModelTrainer:
-    """
-    A custom callback that derives from ``BaseCallback``.
-
-    :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
-    """
-    def __init__(self, action_model, discrete, cat_dim=1):
-        self.action_model = action_model
+    def __init__(self, obs_space, act_space, lr, device, cat_dim=1):
         self.cat_dim = cat_dim
-        self.discrete = discrete
+        self.discrete = isinstance(act_space, gym.spaces.Discrete)
         self.nupdates = 0
+
+        obs_shape = list(obs_space.shape)
+        ssprime_obs_space = gym.spaces.Box(
+            low=obs_space.low.min(),
+            high=obs_space.high.max(),
+            shape=(2 * obs_shape[2], *obs_shape[:2]) if self.discrete else (2 * obs_shape[0],),
+            dtype=obs_space.dtype)
+
+        if self.discrete:
+            self.action_model = CnnPolicy(
+                observation_space=ssprime_obs_space,
+                action_space=act_space,
+                lr_schedule=lambda x: lr).to(device)
+        else:
+            self.action_model = Actor(
+                observation_space=ssprime_obs_space,
+                action_space=act_space,
+                features_extractor=FlattenExtractor(ssprime_obs_space),
+                net_arch=[256, 256],
+                features_dim=ssprime_obs_space.shape[0]).to(device)
+
+            self.action_dist = SquashedDiagGaussianDistribution(get_action_dim(self.action_model.action_space))
+            self.optimizer = th.optim.Adam(self.action_model.parameters(), lr=lr)
 
     def train_step(self, batch, **kwargs):
         self.nupdates += 1
@@ -46,15 +70,15 @@ class ActionModelTrainer:
         # 1. build s,s'=f(s,a) distribution function
         x = torch.cat((batch.observations, batch.next_observations), dim=self.cat_dim).float()
         # 1.1 calculate mu, sigma of the Gaussian action model
-        mu, log_std, _ = self.action_model.actor.get_action_dist_params(x)
+        mu, log_std, _ = self.action_model.get_action_dist_params(x)
         # 1.2 update probability distribution with calculated mu, log_std
-        self.action_model.actor.action_dist.proba_distribution(mu, log_std)
+        self.action_model.action_dist.proba_distribution(mu, log_std)
         # 2 use N(ss') to calculate the probability of actually played action
-        a_logp = self.action_model.actor.action_dist.log_prob(batch.actions)
+        a_logp = self.action_model.action_dist.log_prob(batch.actions)
 
         # Optimize the action model
         loss = -a_logp.mean()
-        self.action_model.actor.optimizer.zero_grad()
+        self.optimizer.zero_grad()
         loss.backward()
-        self.action_model.actor.optimizer.step()
+        self.optimizer.step()
         logger.record("action model/loss", loss.item())

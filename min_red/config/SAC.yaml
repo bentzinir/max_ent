@@ -4,7 +4,7 @@ off_policy: True
 policy:
   learning_rate: 0.0003
   gamma: 0.99
-  buffer_size: 50000
+  buffer_size: 100000
   learning_starts: 10000
   batch_size: 256
   target_update_interval: 1
@@ -14,7 +14,6 @@ policy:
   gradient_steps: 1000
   method: None
   ent_coef: 'auto'
-  importance_sampling: True
 
 buffer:
   prioritized_ensemble: False

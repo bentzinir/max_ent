@@ -13,7 +13,8 @@ from stable_baselines3.sac import SAC
 import types
 from min_red.utils.collect_rollouts import collect_rollouts
 from min_red.utils.buffers import ISReplayBuffer
-from min_red.min_red_regularization_stochastic import stochastic_min_red
+from min_red.stochastic_min_red import stochastic_min_red
+import wandb
 
 
 class MinRedSAC(SAC):
@@ -49,14 +50,14 @@ class MinRedSAC(SAC):
         alpha=0.1,
         method='none',
         regularization_starts: int = 1,
-        importance_sampling: bool = False,
+        wandb_log_interval: int = 0,
     ):
 
         self.action_trainer = action_trainer
         self.alpha = alpha
         self.method = method
         self.regularization_starts = regularization_starts
-        self.importance_sampling = importance_sampling
+        self.wandb_log_interval = wandb_log_interval
 
         super(MinRedSAC, self).__init__(
             policy,
@@ -97,29 +98,6 @@ class MinRedSAC(SAC):
 
         # override actor's forward method for this object only
         self.actor.forward = types.MethodType(forward, self.actor)
-
-        def get_action_dist_params(self, obs: th.Tensor) -> Tuple[th.Tensor, th.Tensor, Dict[str, th.Tensor]]:
-            # CAP the standard deviation of the actor
-            LOG_STD_MAX = 2
-            LOG_STD_MIN = -5
-            features = self.extract_features(obs)
-            latent_pi = self.latent_pi(features)
-            mean_actions = self.mu(latent_pi)
-
-            if self.use_sde:
-                latent_sde = latent_pi
-                if self.sde_features_extractor is not None:
-                    latent_sde = self.sde_features_extractor(features)
-                return mean_actions, self.log_std, dict(latent_sde=latent_sde)
-            # Unstructured exploration (Original implementation)
-            log_std = self.log_std(latent_pi)
-            # Original Implementation to cap the standard deviation
-            log_std = th.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
-            return mean_actions, log_std, {}
-
-        # override action model minimum log_std
-        self.action_trainer.action_model.actor.get_action_dist_params = types.MethodType(get_action_dist_params,
-                                                                                   self.action_trainer.action_model.actor)
 
         # override collect_rollout method for this object only
         self.collect_rollouts = types.MethodType(collect_rollouts, self)
@@ -197,26 +175,29 @@ class MinRedSAC(SAC):
                 # NEW
                 REWARDS = replay_data.rewards
                 with th.no_grad():
-                    if self.method == 'action':
-                        g = - log_prob
-                    elif self.method == 'stochastic':
-                        g = stochastic_min_red(obs=replay_data.observations,
-                                               next_obs=replay_data.next_observations,
-                                               action=replay_data.actions,
-                                               actor=self.actor,
-                                               action_module=self.action_trainer.action_model.actor,
-                                               logp_fresh=log_prob,
-                                               logp0_replayed=replay_data.logp,
-                                               cat_dim=self.action_trainer.cat_dim,
-                                               importance_sampling=self.importance_sampling)
-                    else:
-                        raise ValueError
+                    g = - log_prob
+                    logger.record("reg/entropy", g.mean().item(), exclude="tensorboard")
+                    if self.method == 'stochastic':
+                        min_red_g = stochastic_min_red(
+                            obs=replay_data.observations,
+                            next_obs=replay_data.next_observations,
+                            action=replay_data.actions,
+                            actor=self.actor,
+                            action_module=self.action_trainer.action_model,
+                            logp0_replayed=replay_data.logp,
+                            cat_dim=self.action_trainer.cat_dim)
+                        logger.record("reg/posterior", min_red_g.mean().item(), exclude="tensorboard")
+                        g = g + min_red_g
+
+                        if self.wandb_log_interval > 0 and self.num_timesteps % self.wandb_log_interval == 0:
+                            wandb.log({f"entropy": -log_prob.mean().item()}, step=self.num_timesteps)
+                            wandb.log({f"posterior": min_red_g.mean().item()}, step=self.num_timesteps)
 
                     if th.any(th.isnan(g)).item():
                         print("Nan in g")
 
                     logger.record("action model/method", self.method, exclude="tensorboard")
-                    logger.record("action model/g_mean", g.mean().item(), exclude="tensorboard")
+                    logger.record("reg/overall", g.mean().item(), exclude="tensorboard")
 
                 # td error + entropy term
                 REWARDS = REWARDS + ent_coef * g.view(-1, 1)

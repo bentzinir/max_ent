@@ -1,4 +1,3 @@
-discrete: True
 off_policy: True
 
 policy:

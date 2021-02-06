@@ -11,9 +11,9 @@ from stable_baselines3.ppo import PPO
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.policies import ActorCriticPolicy
-from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
+from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.common.vec_env import VecEnv
-from min_red.min_red_regularization import min_red_th
+from min_red.discrete_min_red import discrete_min_red
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.utils import explained_variance
 import wandb
@@ -314,7 +314,7 @@ class MinRedPPO(PPO):
 
         # reshape before feeding to min_red_regularization
         b, e, c, h, w = _th_obs.shape
-        g = min_red_th(
+        g = discrete_min_red(
             obs=_th_obs.view(b*e, c, h, w).to(self.device),
             next_obs=_th_next_obs.view(b*e, c, h, w).to(self.device),
             actions=_th_actions.view(b*e, 1).to(self.device),

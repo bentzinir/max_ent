@@ -6,7 +6,8 @@ from stable_baselines3.common import logger
 from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.dqn.policies import DQNPolicy
 from stable_baselines3.dqn import DQN
-from min_red.min_red_regularization import action_probs, active_mask
+from min_red.discrete_min_red import action_probs, active_mask
+import wandb
 
 
 class GroupedDQN(DQN):
@@ -40,6 +41,7 @@ class GroupedDQN(DQN):
             method: str = None,
             threshold: Union[None, float] = None,
             regularization_starts: int = 50000,
+            wandb_log_interval: int = 0,
     ):
 
         super(GroupedDQN, self).__init__(
@@ -73,6 +75,7 @@ class GroupedDQN(DQN):
         self.action_trainer = action_trainer
         self.threshold = threshold
         self.regularization_starts = regularization_starts
+        self.wandb_log_interval = wandb_log_interval
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Update learning rate according to schedule
@@ -143,3 +146,5 @@ class GroupedDQN(DQN):
         logger.record("action model/mask_size", mask_size.item(), exclude="tensorboard")
         logger.record("action model/method", self.method, exclude="tensorboard")
         logger.record("train/ID", self.env.unwrapped.envs[0].spec.id, exclude="tensorboard")
+        if self.wandb_log_interval > 0 and self.num_timesteps % self.wandb_log_interval == 0:
+            wandb.log({f"mask_size": mask_size.item()}, step=self.num_timesteps)

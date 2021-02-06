@@ -25,7 +25,7 @@ def active_mask(actions, action_model_probs, threshold):
     return active_actions
 
 
-def min_red_th(obs, next_obs, actions, pi, pi_0, dones, method, importance_sampling, absolute_threshold, cat_dim, action_module):
+def discrete_min_red(obs, next_obs, actions, pi, pi_0, dones, method, importance_sampling, absolute_threshold, cat_dim, action_module):
     '''
     :param obs: B x C x H x W
     :param next_obs: B x C x H x W

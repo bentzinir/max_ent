@@ -53,43 +53,30 @@ def train(config):
                    vec_env_kwargs=config.vec_env_kwargs,
                    env_kwargs=config.env_kwargs)
 
-    if config.video_config:
+    if config.video_config.get("interval", 0) > 0:
         env = VecVideoRecorder(env, "videos",
                                record_video_trigger=lambda x: x % config.video_config.interval == 0,
                                video_length=config.video_config.length,
                                name_prefix=f"{config.env_id}_{date.today().strftime('%b-%d-%Y')}")
 
-    obs_shape = list(env.observation_space.shape)
-
-    if config.algorithm.discrete:
-        if config.algorithm.off_policy:
-            if config.algorithm_type == 'GroupedQ':
-                from min_red.grouped_dqn import GroupedDQN as Algorithm
-            else:
-                from min_red.min_red_dqn import MinRedDQN as Algorithm
-        else:
-            from min_red.min_red_ppo import MinRedPPO as Algorithm
-        from stable_baselines3.dqn.policies import CnnPolicy as ActionModel
-        ssprime_shape = (2 * obs_shape[2], *obs_shape[:2])
-        policy = 'CnnPolicy'
-    else:
+    # Algorithm
+    if config.algorithm_type == 'GroupedQ':
+        from min_red.grouped_dqn import GroupedDQN as Algorithm
+    elif config.algorithm_type == 'DQN':
+        from min_red.min_red_dqn import MinRedDQN as Algorithm
+    elif config.algorithm_type == 'SAC':
         from min_red.min_red_sac import MinRedSAC as Algorithm
-        from stable_baselines3.sac import MlpPolicy as ActionModel
-        ssprime_shape = (2*obs_shape[0],)
-        policy = 'MlpPolicy'
+    elif config.algorithm_type == 'PPO':
+        from min_red.min_red_ppo import MinRedPPO as Algorithm
+    else:
+        raise ValueError
 
-    # create action model obs space by extending env's obs space
-    ssprime_obs_space = gym.spaces.Box(low=env.observation_space.low.min(),
-                                       high=env.observation_space.high.max(),
-                                       shape=ssprime_shape,
-                                       dtype=env.observation_space.dtype)
+    policy = 'CnnPolicy' if config.discrete else 'MlpPolicy'
 
-    action_model = ActionModel(observation_space=ssprime_obs_space,
-                               action_space=env.action_space,
-                               lr_schedule=lambda x: config.algorithm.policy.learning_rate).to(config.device)
-
-    action_trainer = ActionModelTrainer(action_model=action_model,
-                                        discrete=config.algorithm.discrete)
+    action_trainer = ActionModelTrainer(obs_space=env.observation_space,
+                                        act_space=env.action_space,
+                                        lr=config.algorithm.policy.learning_rate,
+                                        device=config.device)
 
     model = Algorithm(policy, env, action_trainer=action_trainer, **config.algorithm.policy)
 
@@ -110,6 +97,7 @@ def bcast_config_vals(config):
     config.algorithm.policy.method = config.method
     config.macro_length = config.wrapper_kwargs.macro_length
     config.wandb_log_interval = config.wrapper_kwargs.wandb_log_interval
+    config.algorithm.policy.wandb_log_interval = config.wrapper_kwargs.wandb_log_interval
     return config
 
 
