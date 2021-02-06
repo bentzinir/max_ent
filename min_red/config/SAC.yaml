@@ -14,6 +14,7 @@ policy:
   gradient_steps: 1000
   method: None
   ent_coef: 'auto'
+  beta: 1
 
 buffer:
   prioritized_ensemble: False

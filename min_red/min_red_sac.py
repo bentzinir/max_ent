@@ -51,6 +51,7 @@ class MinRedSAC(SAC):
         method='none',
         regularization_starts: int = 1,
         wandb_log_interval: int = 0,
+        beta: float = 1,
     ):
 
         self.action_trainer = action_trainer
@@ -58,6 +59,7 @@ class MinRedSAC(SAC):
         self.method = method
         self.regularization_starts = regularization_starts
         self.wandb_log_interval = wandb_log_interval
+        self.beta = beta
 
         super(MinRedSAC, self).__init__(
             policy,
@@ -175,7 +177,7 @@ class MinRedSAC(SAC):
                 # NEW
                 REWARDS = replay_data.rewards
                 with th.no_grad():
-                    g = - log_prob
+                    g = - self.ent_coef * log_prob
                     logger.record("reg/entropy", g.mean().item(), exclude="tensorboard")
                     if self.method == 'stochastic':
                         min_red_g = stochastic_min_red(
@@ -187,7 +189,7 @@ class MinRedSAC(SAC):
                             logp0_replayed=replay_data.logp,
                             cat_dim=self.action_trainer.cat_dim)
                         logger.record("reg/posterior", min_red_g.mean().item(), exclude="tensorboard")
-                        g = g + min_red_g
+                        g = g + self.beta * min_red_g
 
                         if self.wandb_log_interval > 0 and self.num_timesteps % self.wandb_log_interval == 0:
                             wandb.log({f"entropy": -log_prob.mean().item()}, step=self.num_timesteps)
@@ -200,7 +202,7 @@ class MinRedSAC(SAC):
                     logger.record("reg/overall", g.mean().item(), exclude="tensorboard")
 
                 # td error + entropy term
-                REWARDS = REWARDS + ent_coef * g.view(-1, 1)
+                REWARDS = REWARDS + g.view(-1, 1)
                 ###############################
 
                 q_backup = REWARDS + (1 - replay_data.dones) * self.gamma * target_q
