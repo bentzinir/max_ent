@@ -35,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument("--macro_length", type=int, default=1)
     parser.add_argument("--n_repeats", type=int, default=2)
     parser.add_argument("--wandb_log_interval", type=int, default=10000)
-    parser.add_argument("--total_timesteps", type=int, default=3000000)
+    parser.add_argument("--total_timesteps", type=int, default=10000000)
     parser.add_argument("--pause", type=float, default=0.1)
     parser.add_argument("--dry", action='store_true')
 

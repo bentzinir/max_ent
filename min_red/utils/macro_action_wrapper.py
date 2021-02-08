@@ -14,7 +14,7 @@ class MacroActionRepeatEnv(gym.Wrapper):
         self.macro_actions = list(itertools.product(range(env.action_space.n), repeat=k))
         self.action_space = gym.spaces.Discrete(len(self.macro_actions))
         print(f" !!!!!!!!! (Macro Action Wrapper). |A| :{env.action_space.n} Macro Length: {k}, Augmented |A|: {self.action_space.n} !!!!!!!!! ")
-
+        assert self.action_space.n <= 64, "Augmented action space is too big"
         self.vis = vis
         self.num_timesteps = 0
         self.ep_info_buffer = deque(maxlen=100)
@@ -43,6 +43,6 @@ class MacroActionWrapper(gym.Wrapper):
         vis: bool = False,
     ):
         if macro_length > 1:
-            assert isinstance(env.action_space, gym.spaces.Box)
+            assert isinstance(env.action_space, gym.spaces.Discrete)
             env = MacroActionRepeatEnv(env, k=macro_length, vis=vis)
         super(MacroActionWrapper, self).__init__(env)

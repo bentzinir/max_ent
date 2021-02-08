@@ -1,6 +1,7 @@
 env_id: 'BreakoutNoFrameskip-v4'
 method: 'action'
 config_path: 'min_red/config'
+discrete: True
 algorithm_type: 'PPO'
 total_timesteps: 5000000
 env_kwargs: 'empty_dict'
@@ -13,3 +14,6 @@ vec_env_kwargs: 'empty_dict'
 is_atari: True
 play_model: False
 save_model: False
+video_config:
+  length: 100
+  interval: 0
