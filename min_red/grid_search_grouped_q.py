@@ -3,12 +3,7 @@ import time
 import argparse
 
 
-def run(env_id, delta, macro_length, n_repeats, wandb_log_interval, total_timesteps, pause, dry):
-
-    methods = [
-              'baseline',
-              'group'
-               ]
+def run(env_id, delta, macro_length, methods, n_repeats, wandb_log_interval, total_timesteps, pause, dry):
 
     log_interval = 100
 
@@ -34,6 +29,7 @@ if __name__ == '__main__':
     parser.add_argument("--delta", type=float, default=0.1)
     parser.add_argument("--macro_length", type=int, default=1)
     parser.add_argument("--n_repeats", type=int, default=2)
+    parser.add_argument("--methods", nargs="+", default=['action', 'group'])
     parser.add_argument("--wandb_log_interval", type=int, default=10000)
     parser.add_argument("--total_timesteps", type=int, default=10000000)
     parser.add_argument("--pause", type=float, default=0.1)
