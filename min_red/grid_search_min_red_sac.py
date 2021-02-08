@@ -3,29 +3,30 @@ import time
 import argparse
 
 
-def run(envs, ent_coef, beta, learning_rate, learning_starts, methods, n_repeats, buffer_size, wandb_log_interval, total_timesteps, pause, dry):
+def run(envs, ent_coef, betas, learning_rate, learning_starts, methods, n_repeats, buffer_size, wandb_log_interval, total_timesteps, pause, dry):
 
     log_interval = 1
 
     for trials in range(n_repeats):
         for env in envs:
             for method in methods:
-                cmd_line = f"python -m min_red.train --f min_red/config/mujoco --algorithm_type SAC " \
-                           f" --wrapper_kwargs.wandb_log_interval {wandb_log_interval} " \
-                           f" --method {method} " \
-                           f" --algorithm.policy.learning_rate {learning_rate} " \
-                           f" --algorithm.policy.learning_starts {learning_starts} " \
-                           f" --algorithm.policy.ent_coef {ent_coef} " \
-                           f" --algorithm.policy.beta {beta} " \
-                           f" --algorithm.policy.buffer_size {buffer_size} " \
-                           f" --total_timesteps {total_timesteps} " \
-                           f" --algorithm.learn.log_interval {log_interval} " \
-                           f" --env_id {env} & "
-                print(cmd_line)
-                print("\n")
-                if not dry:
-                    os.system(cmd_line)
-                    time.sleep(pause)
+                for beta in betas:
+                    cmd_line = f"python -m min_red.train --f min_red/config/mujoco --algorithm_type SAC " \
+                               f" --wrapper_kwargs.wandb_log_interval {wandb_log_interval} " \
+                               f" --method {method} " \
+                               f" --algorithm.policy.learning_rate {learning_rate} " \
+                               f" --algorithm.policy.learning_starts {learning_starts} " \
+                               f" --algorithm.policy.ent_coef {ent_coef} " \
+                               f" --algorithm.policy.beta {beta} " \
+                               f" --algorithm.policy.buffer_size {buffer_size} " \
+                               f" --total_timesteps {total_timesteps} " \
+                               f" --algorithm.learn.log_interval {log_interval} " \
+                               f" --env_id {env} & "
+                    print(cmd_line)
+                    print("\n")
+                    if not dry:
+                        os.system(cmd_line)
+                        time.sleep(pause)
 
 
 if __name__ == '__main__':
@@ -36,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument("--n_repeats", type=int, default=2)
     parser.add_argument("--wandb_log_interval", type=int, default=10000)
     parser.add_argument("--ent_coef", type=float, default=0.1)
-    parser.add_argument("--beta", type=float, default=0.1)
+    parser.add_argument("--betas", nargs="+", default=[0.01])
     parser.add_argument("--learning_rate", type=float, default=0.0003)
     parser.add_argument("--learning_starts", type=int, default=10000)
     parser.add_argument("--total_timesteps", type=int, default=3000000)
