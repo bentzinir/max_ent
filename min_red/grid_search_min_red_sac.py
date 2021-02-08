@@ -41,7 +41,7 @@ if __name__ == '__main__':
     parser.add_argument("--learning_rate", type=float, default=0.0003)
     parser.add_argument("--learning_starts", type=int, default=10000)
     parser.add_argument("--total_timesteps", type=int, default=3000000)
-    parser.add_argument("--buffer_size", type=int, default=50000)
+    parser.add_argument("--buffer_size", type=int, default=100000)
     parser.add_argument("--pause", type=float, default=0.1)
     parser.add_argument("--dry", action='store_true')
 
