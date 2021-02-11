@@ -24,7 +24,7 @@ def make_wrapped_env(
     if wrapper_kwargs is None:
         wrapper_kwargs = {}
 
-    def macro_action_wrapper(env: gym.Env) -> gym.Env:
+    def env_wrapper(env: gym.Env) -> gym.Env:
         if wrapper_kwargs.get('macro_length', 1) > 1:
             env = MacroActionWrapper(env, **wrapper_kwargs)
 
@@ -43,7 +43,7 @@ def make_wrapped_env(
         seed=seed,
         start_index=start_index,
         monitor_dir=monitor_dir,
-        wrapper_class=macro_action_wrapper,
+        wrapper_class=env_wrapper,
         env_kwargs=env_kwargs,
         vec_env_cls=vec_env_cls,
         vec_env_kwargs=vec_env_kwargs,
