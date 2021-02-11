@@ -4,7 +4,7 @@ import gym
 
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
 from min_red.utils.macro_action_wrapper import MacroActionWrapper
-from min_red.utils.sparse_mujoco_wrapper import SparseRewardWrapper
+from min_red.utils.sparse_reward_wrapper import SparseRewardWrapper
 from min_red.utils.wandb_wrapper import WandbWrapper
 
 
