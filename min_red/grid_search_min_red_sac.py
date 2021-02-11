@@ -40,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument("--wandb_log_interval", type=int, default=10000)
     parser.add_argument("--ent_coef", type=float, default=0.1)
     parser.add_argument("--betas", nargs="+", default=[0.01])
-    parser.add_argument("--dt", nargs="+", default=[0])
+    parser.add_argument("--dts", nargs="+", default=[0])
     parser.add_argument("--learning_rate", type=float, default=0.0003)
     parser.add_argument("--learning_starts", type=int, default=10000)
     parser.add_argument("--total_timesteps", type=int, default=3000000)
