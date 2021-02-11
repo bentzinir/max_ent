@@ -8,6 +8,7 @@ def run(env_id, delta, macro_length, methods, n_redundancies, n_repeats, wandb_l
     log_interval = 100
     learning_starts = 10000
     reg_starts = 20000
+    buffer_size = 20000
     for trials in range(n_repeats):
         for method in methods:
             for n_redun in n_redundancies:
@@ -18,6 +19,7 @@ def run(env_id, delta, macro_length, methods, n_redundancies, n_repeats, wandb_l
                            f" --total_timesteps {total_timesteps} " \
                            f" --algorithm.learn.log_interval {log_interval} " \
                            f" --algorithm.policy.threshold {delta}" \
+                           f" --algorithm.policy.buffer_size {buffer_size}" \
                            f" --algorithm.policy.learning_starts {learning_starts}"\
                            f" --algorithm.policy.regularization_starts {reg_starts}" \
                            f" --wrapper_kwargs.macro_length {macro_length} " \
