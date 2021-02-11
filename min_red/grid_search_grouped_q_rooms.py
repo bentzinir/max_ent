@@ -12,7 +12,7 @@ def run(env_id, delta, macro_length, methods, n_redundancies, n_repeats, wandb_l
     for trials in range(n_repeats):
         for method in methods:
             for n_redun in n_redundancies:
-                cmd_line = f"python -m min_red.train --f min_red/config/atari --algorithm_type GroupedQ " \
+                cmd_line = f"python -m min_red.train --f min_red/config/rooms --algorithm_type GroupedQ " \
                            f" --wrapper_kwargs.wandb_log_interval {wandb_log_interval} " \
                            f" --method {method} " \
                            f" --env_kwargs.n_redundancies {n_redun} " \
