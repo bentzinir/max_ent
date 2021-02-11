@@ -9,7 +9,7 @@ def run(delta, macro_length, methods, n_redundancies, n_repeats, wandb_log_inter
     reg_starts = 10000
     buffer_size = 20000
     delta = None
-    n_envs = 2
+    n_envs = 1
 
     for trials in range(n_repeats):
         for method in methods:
