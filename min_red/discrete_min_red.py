@@ -25,7 +25,7 @@ def active_mask(actions, action_model_probs, threshold):
     return active_actions
 
 
-def discrete_min_red(obs, next_obs, actions, pi, pi_0, dones, method, importance_sampling, absolute_threshold, cat_dim, action_module):
+def discrete_min_red(obs, next_obs, actions, pi, pi_0, dones, method, importance_sampling, absolute_threshold, delta, cat_dim, action_module):
     '''
     :param obs: B x C x H x W
     :param next_obs: B x C x H x W
@@ -54,9 +54,10 @@ def discrete_min_red(obs, next_obs, actions, pi, pi_0, dones, method, importance
     pi_a = th.sum(a_mask * pi, dim=1, keepdim=True)
     pa_a = th.sum(a_mask * action_model_probs, dim=1, keepdim=True)
     if absolute_threshold:
-        thresh = 1e-2
+        thresh = delta * th.ones_like(action_model_probs)
     else:
         thresh = pa_a.repeat(1, n_actions)
+    logger.record("action model/threshold", thresh.mean().item())
     active_actions = (action_model_probs >= thresh).float()
     pi_a_prime = th.sum(active_actions * a_prime_mask * pi, dim=1, keepdim=True)
     n_primes = th.mean(th.sum(active_actions * a_prime_mask, dim=1))
@@ -77,5 +78,5 @@ def discrete_min_red(obs, next_obs, actions, pi, pi_0, dones, method, importance
             g = g * (pi_a / pi_0)
         # Mask with done
         g = g * (1 - dones)
-        logger.record("train/g", g.mean().item())
-    return g
+        logger.record("action model/g", g.mean().item())
+    return g, n_primes

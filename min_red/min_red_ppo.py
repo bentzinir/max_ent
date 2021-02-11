@@ -49,7 +49,9 @@ class MinRedPPO(PPO):
         action_trainer=None,
         method='none',
         absolute_threshold: bool = True,
-        wandb: bool = True,
+        regularization_starts: int = 1,
+        delta: Union[None, float] = None,
+        wandb_log_interval: bool = True,
         min_red_ent_coef: float = 0.0,
         buffer_size: int = 100000,
     ):
@@ -83,9 +85,11 @@ class MinRedPPO(PPO):
         self.action_trainer = action_trainer
         self.method = method
         self.absolute_threshold = absolute_threshold
-        self.wandb = wandb
+        self.delta = 1./self.env.action_space.n if not delta else delta
+        self.wandb_log_interval = wandb_log_interval
         self.min_red_ent_coef = min_red_ent_coef
         self.buffer_size = buffer_size
+        self.regularization_starts = regularization_starts
 
         def forward(self, obs: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor, th.Tensor, th.Tensor]:
             """
@@ -314,7 +318,7 @@ class MinRedPPO(PPO):
 
         # reshape before feeding to min_red_regularization
         b, e, c, h, w = _th_obs.shape
-        g = discrete_min_red(
+        g, n_primes = discrete_min_red(
             obs=_th_obs.view(b*e, c, h, w).to(self.device),
             next_obs=_th_next_obs.view(b*e, c, h, w).to(self.device),
             actions=_th_actions.view(b*e, 1).to(self.device),
@@ -324,13 +328,15 @@ class MinRedPPO(PPO):
             method=self.method,
             importance_sampling=False,
             absolute_threshold=self.absolute_threshold,
+            delta= self.delta,
             cat_dim=self.action_trainer.cat_dim,
             action_module=self.action_trainer.action_model.q_net)
 
         min_red_reg = self.min_red_ent_coef * g.view(b, e).cpu().numpy()
         # concatenate zero in last place
         min_red_reg = np.concatenate([min_red_reg, np.zeros((1, e))])
-        rollout_buffer.rewards += min_red_reg
+        if self.num_timesteps > self.regularization_starts:
+            rollout_buffer.rewards += min_red_reg
 
         rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
 
@@ -340,7 +346,8 @@ class MinRedPPO(PPO):
         callback.on_rollout_end()
 
         # wandb logging
-        if self.wandb:
+        if self.wandb_log_interval:
             wandb.log({"reward": safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer])}, step=self.num_timesteps)
             wandb.log({"ep_len": safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer])}, step=self.num_timesteps)
+            wandb.log({"mask_size": n_primes.mean().item()}, step=self.num_timesteps)
         return True

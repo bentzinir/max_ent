@@ -15,9 +15,11 @@ policy:
   verbose: 1
   method: None
   absolute_threshold: True
+  delta: None
   ent_coef: 0.01
   min_red_ent_coef: 0.01
   buffer_size: 50000  # for action model
+  regularization_starts: 50000
 
 learn:
   total_timesteps: None
