@@ -39,7 +39,7 @@ if __name__ == '__main__':
     parser.add_argument("--methods", nargs="+", default=['action', 'group'])
     parser.add_argument("--n_redundancies", nargs="+", default=[1])
     parser.add_argument("--wandb_log_interval", type=int, default=1000)
-    parser.add_argument("--total_timesteps", type=int, default=100000)
+    parser.add_argument("--total_timesteps", type=int, default=1000000)
     parser.add_argument("--pause", type=float, default=0.1)
     parser.add_argument("--dry", action='store_true')
 
