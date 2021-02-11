@@ -7,7 +7,7 @@ def run(env_id, delta, macro_length, methods, n_redundancies, n_repeats, wandb_l
 
     log_interval = 100
     learning_starts = 10000
-    reg_starts = 20000
+    reg_starts = 50000
     buffer_size = 20000
     for trials in range(n_repeats):
         for method in methods:
