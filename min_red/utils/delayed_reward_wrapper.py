@@ -1,10 +1,8 @@
 import gym
 from stable_baselines3.common.type_aliases import GymObs, GymStepReturn
-import itertools
-from collections import deque
 
 
-class SparseRewardEnv(gym.Wrapper):
+class DelayedRewardEnv(gym.Wrapper):
     def __init__(self, env: gym.Env, dt: int = 0, vis: bool = False):
         gym.Wrapper.__init__(self, env)
         self.dt = dt
@@ -29,7 +27,7 @@ class SparseRewardEnv(gym.Wrapper):
         return self.env.reset(**kwargs)
 
 
-class SparseRewardWrapper(gym.Wrapper):
+class DelayedRewardWrapper(gym.Wrapper):
     def __init__(
         self,
         env: gym.Env,
@@ -37,5 +35,5 @@ class SparseRewardWrapper(gym.Wrapper):
         vis: bool = False,
         **kwargs
     ):
-        env = SparseRewardEnv(env, dt=dt, vis=vis)
-        super(SparseRewardWrapper, self).__init__(env)
+        env = DelayedRewardEnv(env, dt=dt, vis=vis)
+        super(DelayedRewardWrapper, self).__init__(env)

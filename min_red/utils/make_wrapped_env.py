@@ -4,7 +4,8 @@ import gym
 
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
 from min_red.utils.macro_action_wrapper import MacroActionWrapper
-from min_red.utils.sparse_reward_wrapper import SparseRewardWrapper
+from min_red.utils.delayed_reward_wrapper import DelayedRewardWrapper
+from min_red.utils.accumulated_reward_wrapper import AccumulatedRewardWrapper
 from min_red.utils.wandb_wrapper import WandbWrapper
 
 
@@ -27,7 +28,9 @@ def make_wrapped_env(
         if wrapper_kwargs.get('macro_length', 1) > 1:
             env = MacroActionWrapper(env, **wrapper_kwargs)
 
-        env = SparseRewardWrapper(env, dt=int(wrapper_kwargs.get('dt', 0)))
+        env = DelayedRewardWrapper(env, dt=int(wrapper_kwargs.get('dt', 0)))
+
+        env = AccumulatedRewardWrapper(env, dr=float(wrapper_kwargs.get('dr', -9999)))
 
         wandb_log_interval = wrapper_kwargs.get('wandb_log_interval', 0)
         if wandb_log_interval:
