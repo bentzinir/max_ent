@@ -16,8 +16,8 @@ policy:
   method: None
   absolute_threshold: True
   delta: None
-  ent_coef: 0.01
-  min_red_ent_coef: 0.01
+  ent_coef: 0.001
+  min_red_ent_coef: 0.001
   buffer_size: 50000  # for action model
   regularization_starts: 50000
 
