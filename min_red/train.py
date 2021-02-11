@@ -48,6 +48,8 @@ def train(config):
         config.n_envs = 1
     else:
         vec_env = SubprocVecEnv
+        # TODO: remove after running rooms-ppo experiment
+        vec_env = DummyVecEnv
     env = make_env(config.env_id, n_envs=config.n_envs, seed=0, vec_env_cls=vec_env,
                    wrapper_kwargs=config.wrapper_kwargs,
                    vec_env_kwargs=config.vec_env_kwargs,
