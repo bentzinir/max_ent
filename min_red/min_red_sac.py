@@ -242,6 +242,7 @@ class MinRedSAC(SAC):
         logger.record("action model/method", self.method, exclude="tensorboard")
         logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         logger.record("train/ent_coef", np.mean(ent_coefs))
+        logger.record("train/beta", self.beta)
         logger.record("train/actor_loss", np.mean(actor_losses))
         logger.record("train/critic_loss", np.mean(critic_losses))
         if len(ent_coef_losses) > 0:

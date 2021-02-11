@@ -8,7 +8,7 @@ from mixture.config.parser_args import get_config
 from mixture.config.config import Config
 import argparse
 from mixture.utils.make_atari_stack_env import make_atari_stack_env
-from min_red.utils.make_macro_action_env import make_macro_action_env
+from min_red.utils.make_wrapped_env import make_wrapped_env
 from common.format_string import pretty
 import wandb
 import os
@@ -42,7 +42,7 @@ def train(config):
     if config.is_atari:
         make_env = make_atari_stack_env
     else:
-        make_env = make_macro_action_env
+        make_env = make_wrapped_env
     if config.algorithm.off_policy:
         vec_env = DummyVecEnv
         config.n_envs = 1
