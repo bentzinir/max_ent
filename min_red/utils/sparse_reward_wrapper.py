@@ -4,7 +4,7 @@ import itertools
 from collections import deque
 
 
-class SparseMujocoEnv(gym.Wrapper):
+class SparseRewardEnv(gym.Wrapper):
     def __init__(self, env: gym.Env, dt: int = 0, vis: bool = False):
         gym.Wrapper.__init__(self, env)
         self.dt = dt
@@ -37,5 +37,5 @@ class SparseRewardWrapper(gym.Wrapper):
         vis: bool = False,
         **kwargs
     ):
-        env = SparseMujocoEnv(env, dt=dt, vis=vis)
+        env = SparseRewardEnv(env, dt=dt, vis=vis)
         super(SparseRewardWrapper, self).__init__(env)
