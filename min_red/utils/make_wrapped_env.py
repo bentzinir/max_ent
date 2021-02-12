@@ -28,9 +28,9 @@ def make_wrapped_env(
         if wrapper_kwargs.get('macro_length', 1) > 1:
             env = MacroActionWrapper(env, **wrapper_kwargs)
 
-        env = DelayedRewardWrapper(env, dt=int(wrapper_kwargs.get('dt', 0)))
-
-        env = AccumulatedRewardWrapper(env, dr=float(wrapper_kwargs.get('dr', -9999)))
+        # env = DelayedRewardWrapper(env, dt=int(wrapper_kwargs.get('dt', 0)))
+        #
+        # env = AccumulatedRewardWrapper(env, dr=float(wrapper_kwargs.get('dr', -9999)))
 
         wandb_log_interval = wrapper_kwargs.get('wandb_log_interval', 0)
         if wandb_log_interval:
