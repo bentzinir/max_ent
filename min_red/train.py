@@ -15,9 +15,9 @@ import os
 from datetime import date
 
 try:
-    import mujoco_maze
+    import sparseMuJoCo
 except ImportError:
-    print(f"Mujoco Maze not found")
+    print(f"sparse Mujoco not found")
 
 
 def eval_policy(env, model):
