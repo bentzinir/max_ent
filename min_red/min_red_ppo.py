@@ -328,7 +328,7 @@ class MinRedPPO(PPO):
             method=self.method,
             importance_sampling=False,
             absolute_threshold=self.absolute_threshold,
-            delta= self.delta,
+            delta=self.delta,
             cat_dim=self.action_trainer.cat_dim,
             action_module=self.action_trainer.action_model.q_net)
 

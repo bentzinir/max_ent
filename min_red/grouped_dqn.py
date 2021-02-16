@@ -73,7 +73,7 @@ class GroupedDQN(DQN):
 
         self.method = method
         self.action_trainer = action_trainer
-        self.threshold = threshold
+        self.threshold = 1./self.env.action_space.n if not threshold else threshold
         self.regularization_starts = regularization_starts
         self.wandb_log_interval = wandb_log_interval
 
