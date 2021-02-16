@@ -39,7 +39,7 @@ class GroupedDQN(DQN):
             _init_setup_model: bool = True,
             action_trainer=None,
             method: str = None,
-            threshold: Union[None, float] = None,
+            threshold: float = None,
             regularization_starts: int = 50000,
             wandb_log_interval: int = 0,
     ):
@@ -73,7 +73,7 @@ class GroupedDQN(DQN):
 
         self.method = method
         self.action_trainer = action_trainer
-        self.threshold = 1./self.env.action_space.n if not threshold else threshold
+        self.threshold = 1./self.env.action_space.n if threshold == 0 else threshold
         self.regularization_starts = regularization_starts
         self.wandb_log_interval = wandb_log_interval
 

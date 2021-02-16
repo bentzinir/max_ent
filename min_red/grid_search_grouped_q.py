@@ -27,7 +27,7 @@ def run(env_id, delta, macro_length, methods, n_repeats, wandb_log_interval, tot
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", type=str, default="none")
-    parser.add_argument("--delta", type=Union[None, float], default=None)
+    parser.add_argument("--delta", type=float, default=0)
     parser.add_argument("--macro_length", type=int, default=1)
     parser.add_argument("--n_repeats", type=int, default=2)
     parser.add_argument("--methods", nargs="+", default=['action', 'group'])
