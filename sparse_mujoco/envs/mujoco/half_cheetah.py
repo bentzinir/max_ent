@@ -2,8 +2,9 @@ import numpy as np
 from gym import utils
 from gym.envs.mujoco import mujoco_env
 
+
 class HalfCheetahEnv(mujoco_env.MujocoEnv, utils.EzPickle):
-    def __init__(self, sparsity_level):
+    def __init__(self, sparsity_level=1):
         mujoco_env.MujocoEnv.__init__(self, 'half_cheetah.xml', 5)
         utils.EzPickle.__init__(self)
         self.sparsity_level = sparsity_level
