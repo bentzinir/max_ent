@@ -15,7 +15,7 @@ import os
 from datetime import date
 
 try:
-    import sparseMuJoCo
+    import sparse_mujoco
 except ImportError:
     print(f"sparse Mujoco not found")
 
