@@ -5,9 +5,9 @@ from gym.envs.mujoco import mujoco_env
 
 class HalfCheetahEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self, sparsity_level=1):
+        self.sparsity_level = sparsity_level
         mujoco_env.MujocoEnv.__init__(self, 'half_cheetah.xml', 5)
         utils.EzPickle.__init__(self)
-        self.sparsity_level = sparsity_level
 
     def step(self, action):
         """
